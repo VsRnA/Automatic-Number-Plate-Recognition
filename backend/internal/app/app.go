@@ -1,34 +1,74 @@
 package app
 
 import (
+	"context"
 	"log"
-	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/gin-gonic/gin"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure/database"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/handler"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/service"
 )
 
-func Run() {
-	router := gin.Default()
+type App struct {
+	httpServer *infrastructure.HttpServer
+}
 
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+func New() *App {
+	return &App{}
+}
 
-	router.GET("/api/plates", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"plates": []string{"A123BC", "X456YZ", "M789NX"},
-		})
-	})
-
-	router.POST("/api/recognize", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"plate":      "A123BC",
-			"confidence": 0.95,
-		})
-	})
-
-	log.Println("Starting server on :8080")
-	if err := router.Run(":8080"); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+func (a *App) Run() error {
+	cfg, err := config.LoadEnv()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
+
+	db, err := database.InitDB(database.DBConfig{
+		Host:     cfg.DBHost,
+		Port:     cfg.DBPort,
+		DBName:   cfg.DBName,
+		User:     cfg.DBUser,
+		Password: cfg.DBPass,
+		SSLMode:  cfg.DBSsl,
+	})
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	repositories := repository.NewRepository(db)
+	services := service.NewService(repositories)
+	handlers := handler.NewHandler(*cfg, services)
+
+	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
+
+	go func() {
+		log.Printf("HTTP Server listening on port %s", cfg.HTTPPort)
+		if err := srv.Run(); err != nil {
+			log.Fatalf("Error running HTTP server: %s", err.Error())
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	if err := srv.Shutdown(context.Background()); err != nil {
+		log.Fatalf("Error shutting down server: %s", err.Error())
+	}
+
+	sqlDB, err := db.DB()
+	if err == nil {
+		sqlDB.Close()
+	}
+
+	log.Println("Server stopped")
+	return nil
 }
