@@ -31,7 +31,6 @@ build-errors.log
 
 # Environment & secrets
 .env
-.env.*
 *.pem
 *.key
 credentials.json
