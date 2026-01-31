@@ -4,21 +4,24 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/service"
 )
 
 type Handler struct {
-	Plate IPlateHandler
-	cfg   config.Config
+	Plate       IPlateHandler
+	Recognition IRecognitionHandler
+	cfg         config.Config
 }
 
-func NewHandler(cfg config.Config, svc *service.Service) *Handler {
+func NewHandler(cfg config.Config, svc *service.Service, recognitionClient *infrastructure.RecognitionClient) *Handler {
 	validate := validator.New()
 
 	return &Handler{
-		Plate: NewPlateHandler(svc.Plate, validate),
-		cfg:   cfg,
+		Plate:       NewPlateHandler(svc.Plate, validate),
+		Recognition: NewRecognitionHandler(recognitionClient),
+		cfg:         cfg,
 	}
 }
 
@@ -36,6 +39,13 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			plates.GET("/:id", h.Plate.GetPlate)
 			plates.PUT("/:id", h.Plate.UpdatePlate)
 			plates.DELETE("/:id", h.Plate.DeletePlate)
+		}
+
+		recognition := api.Group("/recognition")
+		{
+			recognition.GET("/health", h.Recognition.HealthCheck)
+			recognition.POST("/ping", h.Recognition.Ping)
+			recognition.POST("/test", h.Recognition.TestRecognize)
 		}
 	}
 

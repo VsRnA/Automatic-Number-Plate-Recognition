@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package recognition;
+
+option go_package = "github.com/VsRnA/Automatic-Number-Plate-Recognition/pkg/grpc/recognition";
+
+// RecognitionService provides automatic number plate recognition functionality
+service RecognitionService {
+  // Test methods
+  rpc HealthCheck(Empty) returns (HealthResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
+  rpc TestRecognize(TestRecognizeRequest) returns (TestRecognizeResponse);
+
+  // Production methods
+  rpc RecognizeFromRTSP(RTSPRequest) returns (RecognizeResponse);
+  rpc StopRTSPRecognition(StopRTSPRequest) returns (StopRTSPResponse);
+  rpc GetRTSPStatus(RTSPStatusRequest) returns (RTSPStatusResponse);
+}
+
+// Empty message for requests without parameters
+message Empty {}
+
+// HealthResponse returns service health status
+message HealthResponse {
+  bool healthy = 1;
+  string version = 2;
+  string timestamp = 3;
+}
+
+// PingRequest for testing connectivity
+message PingRequest {
+  string message = 1;
+}
+
+// PingResponse echoes back the message
+message PingResponse {
+  string message = 1;
+  string timestamp = 2;
+}
+
+// TestRecognizeRequest for testing recognition without RTSP
+message TestRecognizeRequest {
+  string image_base64 = 1;
+  bool use_sample_image = 2;
+}
+
+// TestRecognizeResponse returns test recognition results
+message TestRecognizeResponse {
+  bool success = 1;
+  repeated PlateResult plates = 2;
+  string processing_time_ms = 3;
+  string error = 4;
+}
+
+// PlateResult represents a single recognized plate
+message PlateResult {
+  string plate_number = 1;
+  double confidence = 2;
+  BoundingBox bounding_box = 3;
+}
+
+// BoundingBox defines the location of detected plate
+message BoundingBox {
+  int32 x = 1;
+  int32 y = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+// RTSPRequest to start RTSP stream recognition
+message RTSPRequest {
+  string request_id = 1;
+  string rtsp_url = 2;
+  int32 frame_interval = 3;  // Process every Nth frame
+  double confidence_threshold = 4;
+}
+
+// RecognizeResponse for RTSP recognition start
+message RecognizeResponse {
+  bool success = 1;
+  string request_id = 2;
+  string message = 3;
+  string error = 4;
+}
+
+// StopRTSPRequest to stop RTSP stream recognition
+message StopRTSPRequest {
+  string request_id = 1;
+}
+
+// StopRTSPResponse confirms RTSP stop
+message StopRTSPResponse {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+}
+
+// RTSPStatusRequest to check RTSP stream status
+message RTSPStatusRequest {
+  string request_id = 1;
+}
+
+// RTSPStatusResponse returns RTSP stream status
+message RTSPStatusResponse {
+  string request_id = 1;
+  string status = 2;  // "running", "stopped", "error"
+  int64 frames_processed = 3;
+  int64 plates_detected = 4;
+  string started_at = 5;
+  string error = 6;
+}

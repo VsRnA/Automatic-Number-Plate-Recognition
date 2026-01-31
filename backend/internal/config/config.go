@@ -12,12 +12,31 @@ import (
 type Config struct {
 	Env      string `env:"ENV"`
 	HTTPPort string `env:"HTTP_PORT"`
-	DBHost   string `env:"DB_HOST"`
-	DBPort   string `env:"DB_PORT"`
-	DBName   string `env:"DB_NAME"`
-	DBUser   string `env:"DB_USER"`
-	DBPass   string `env:"DB_PASS"`
-	DBSsl    string `env:"DB_SSL"`
+
+	// Database
+	DBHost string `env:"DB_HOST"`
+	DBPort string `env:"DB_PORT"`
+	DBName string `env:"DB_NAME"`
+	DBUser string `env:"DB_USER"`
+	DBPass string `env:"DB_PASS"`
+	DBSsl  string `env:"DB_SSL"`
+
+	// Redis
+	RedisHost   string `env:"REDIS_HOST"`
+	RedisPort   string `env:"REDIS_PORT"`
+	RedisStream string `env:"REDIS_STREAM"`
+
+	// gRPC
+	GRPCHost string `env:"GRPC_HOST"`
+	GRPCPort string `env:"GRPC_PORT"`
+
+	// S3
+	S3Endpoint  string `env:"S3_ENDPOINT"`
+	S3AccessKey string `env:"S3_ACCESS_KEY"`
+	S3SecretKey string `env:"S3_SECRET_KEY"`
+	S3Bucket    string `env:"S3_BUCKET"`
+	S3UseSSL    bool   `env:"S3_USE_SSL"`
+	S3Region    string `env:"S3_REGION"`
 }
 
 func LoadEnv() (*Config, error) {
@@ -26,12 +45,31 @@ func LoadEnv() (*Config, error) {
 	cfg := &Config{
 		Env:      getEnv("ENV", "development"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
-		DBHost:   getEnv("DB_HOST", "localhost"),
-		DBPort:   getEnv("DB_PORT", "5432"),
-		DBName:   getEnv("DB_NAME", "anpr"),
-		DBUser:   getEnv("DB_USER", "anrpPostgres"),
-		DBPass:   getEnv("DB_PASS", "anrpPostgres"),
-		DBSsl:    getEnv("DB_SSL", "disable"),
+
+		// Database
+		DBHost: getEnv("DB_HOST", "localhost"),
+		DBPort: getEnv("DB_PORT", "5432"),
+		DBName: getEnv("DB_NAME", "anpr"),
+		DBUser: getEnv("DB_USER", "anrpPostgres"),
+		DBPass: getEnv("DB_PASS", "anrpPostgres"),
+		DBSsl:  getEnv("DB_SSL", "disable"),
+
+		// Redis
+		RedisHost:   getEnv("REDIS_HOST", "localhost"),
+		RedisPort:   getEnv("REDIS_PORT", "6379"),
+		RedisStream: getEnv("REDIS_STREAM", "anpr:results"),
+
+		// gRPC
+		GRPCHost: getEnv("GRPC_HOST", "localhost"),
+		GRPCPort: getEnv("GRPC_PORT", "50051"),
+
+		// S3
+		S3Endpoint:  getEnv("S3_ENDPOINT", ""),
+		S3AccessKey: getEnv("S3_ACCESS_KEY", ""),
+		S3SecretKey: getEnv("S3_SECRET_KEY", ""),
+		S3Bucket:    getEnv("S3_BUCKET", "anpr"),
+		S3UseSSL:    getEnvBool("S3_USE_SSL", false),
+		S3Region:    getEnv("S3_REGION", "us-east-1"),
 	}
 
 	if err := cfg.ValidateRequired(); err != nil {

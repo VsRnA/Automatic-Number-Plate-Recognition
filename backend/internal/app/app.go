@@ -41,9 +41,17 @@ func (a *App) Run() error {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
+	// Initialize gRPC client for recognition service
+	recognitionClient, err := infrastructure.NewRecognitionClient(cfg.GRPCHost, cfg.GRPCPort)
+	if err != nil {
+		log.Printf("Warning: Failed to connect to recognition service: %v", err)
+	} else {
+		log.Printf("Connected to recognition service at %s:%s", cfg.GRPCHost, cfg.GRPCPort)
+	}
+
 	repositories := repository.NewRepository(db)
 	services := service.NewService(repositories)
-	handlers := handler.NewHandler(*cfg, services)
+	handlers := handler.NewHandler(*cfg, services, recognitionClient)
 
 	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
 
@@ -67,6 +75,10 @@ func (a *App) Run() error {
 	sqlDB, err := db.DB()
 	if err == nil {
 		sqlDB.Close()
+	}
+
+	if recognitionClient != nil {
+		recognitionClient.Close()
 	}
 
 	log.Println("Server stopped")
