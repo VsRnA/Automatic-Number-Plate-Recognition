@@ -15,12 +15,10 @@ def main() -> None:
 
     logger.info(f"Starting recognition service on port {settings.grpc_port}")
 
-    # Recovery: restore workers from Go backend
     logger.info(f"Connecting to Go backend at {settings.go_backend_url}")
     recovery_service = RecoveryService(settings.go_backend_url)
     recovery_service.recover_workers()
 
-    # Start gRPC server
     serve(settings.grpc_port)
 
 

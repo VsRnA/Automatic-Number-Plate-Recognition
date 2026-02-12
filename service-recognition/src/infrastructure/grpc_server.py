@@ -13,15 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
-    """gRPC servicer implementing recognition methods."""
-
     VERSION = "1.0.0"
 
     def __init__(self):
         self.recognition_service = RecognitionService()
 
     def HealthCheck(self, request, context):
-        """Check service health."""
         return recognition_pb2.HealthResponse(
             healthy=True,
             version=self.VERSION,
@@ -29,14 +26,12 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         )
 
     def Ping(self, request, context):
-        """Echo back the message for connectivity testing."""
         return recognition_pb2.PingResponse(
             message=request.message,
             timestamp=datetime.utcnow().isoformat(),
         )
 
     def TestRecognize(self, request, context):
-        """Test recognition without RTSP."""
         result = self.recognition_service.recognize_from_image(
             request.image_base64, request.use_sample_image
         )
@@ -63,7 +58,6 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         )
 
     def RecognizeFromRTSP(self, request, context):
-        """Start RTSP stream recognition - to be implemented."""
         return recognition_pb2.RecognizeResponse(
             success=False,
             request_id=request.request_id,
@@ -72,7 +66,6 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         )
 
     def StopRTSPRecognition(self, request, context):
-        """Stop RTSP stream recognition - to be implemented."""
         return recognition_pb2.StopRTSPResponse(
             success=False,
             message="",
@@ -80,7 +73,6 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         )
 
     def GetRTSPStatus(self, request, context):
-        """Get RTSP stream status - to be implemented."""
         return recognition_pb2.RTSPStatusResponse(
             request_id=request.request_id,
             status="unknown",
@@ -91,9 +83,8 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         )
 
     def StartWorker(self, request, context):
-        """Start a worker for camera recognition."""
         success, message = worker_manager.start_worker(
-            request.camera_id, request.rtsp_url
+            request.camera_id, request.stream
         )
         return recognition_pb2.StartWorkerResponse(
             success=success,
@@ -102,7 +93,6 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         )
 
     def StopWorker(self, request, context):
-        """Stop a worker for camera recognition."""
         success, message = worker_manager.stop_worker(request.camera_id)
         return recognition_pb2.StopWorkerResponse(
             success=success,
@@ -111,7 +101,6 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         )
 
     def GetWorkerStatus(self, request, context):
-        """Get worker status for a camera."""
         worker = worker_manager.get_worker_status(request.camera_id)
         if worker is None:
             return recognition_pb2.GetWorkerStatusResponse(
@@ -129,7 +118,6 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
 
 
 def serve(port: int) -> None:
-    """Start the gRPC server."""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     recognition_pb2_grpc.add_RecognitionServiceServicer_to_server(
         RecognitionServicer(), server

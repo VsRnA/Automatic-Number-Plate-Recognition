@@ -1,6 +1,3 @@
-"""
-Model loader with lazy loading and thread-safe singleton pattern.
-"""
 import logging
 from threading import Lock
 from typing import Optional
@@ -9,8 +6,6 @@ logger = logging.getLogger(__name__)
 
 
 class ModelLoader:
-    """Singleton class for lazy loading ML models with thread-safety."""
-
     _instance: Optional["ModelLoader"] = None
     _init_lock = Lock()
 
@@ -23,7 +18,6 @@ class ModelLoader:
         return cls._instance
 
     def __init__(self):
-        """Initialize the model loader (called only once)."""
         if self._initialized:
             return
 
@@ -40,18 +34,8 @@ class ModelLoader:
             logger.info("ModelLoader singleton initialized")
 
     def get_yolo_model(self, model_path: str = "yolov8n.pt"):
-        """
-        Get YOLO model with lazy loading.
-
-        Args:
-            model_path: Path to YOLO model weights
-
-        Returns:
-            YOLO model instance
-        """
         if self._yolo_model is None:
             with self._yolo_lock:
-                # Double-check locking pattern
                 if self._yolo_model is None:
                     logger.info(f"Loading YOLO model from {model_path}")
                     try:
@@ -66,22 +50,11 @@ class ModelLoader:
         return self._yolo_model
 
     def get_ocr_reader(self, languages: list[str] = None, gpu: bool = True):
-        """
-        Get EasyOCR reader with lazy loading.
-
-        Args:
-            languages: List of language codes (default: ['en', 'ru'])
-            gpu: Enable GPU acceleration
-
-        Returns:
-            EasyOCR Reader instance
-        """
         if languages is None:
             languages = ["en", "ru"]
 
         if self._ocr_reader is None:
             with self._ocr_lock:
-                # Double-check locking pattern
                 if self._ocr_reader is None:
                     logger.info(f"Loading EasyOCR reader for languages: {languages}")
                     try:
@@ -96,7 +69,6 @@ class ModelLoader:
         return self._ocr_reader
 
     def unload_models(self):
-        """Unload all models to free memory (for testing purposes)."""
         with self._yolo_lock:
             if self._yolo_model is not None:
                 del self._yolo_model
