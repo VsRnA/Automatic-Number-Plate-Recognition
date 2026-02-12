@@ -51,3 +51,22 @@ func (c *RecognitionClient) TestRecognize(ctx context.Context, imageBase64 strin
 		UseSampleImage: useSampleImage,
 	})
 }
+
+func (c *RecognitionClient) StartWorker(ctx context.Context, cameraID, rtspUrl string) (*pb.StartWorkerResponse, error) {
+	return c.client.StartWorker(ctx, &pb.StartWorkerRequest{
+		CameraId: cameraID,
+		RtspUrl:  rtspUrl,
+	})
+}
+
+func (c *RecognitionClient) StopWorker(ctx context.Context, cameraID string) (*pb.StopWorkerResponse, error) {
+	return c.client.StopWorker(ctx, &pb.StopWorkerRequest{
+		CameraId: cameraID,
+	})
+}
+
+func (c *RecognitionClient) GetWorkerStatus(ctx context.Context, cameraID string) (*pb.GetWorkerStatusResponse, error) {
+	return c.client.GetWorkerStatus(ctx, &pb.GetWorkerStatusRequest{
+		CameraId: cameraID,
+	})
+}

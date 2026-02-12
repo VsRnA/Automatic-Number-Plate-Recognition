@@ -33,12 +33,6 @@ type TestRecognizeRequest struct {
 	UseSampleImage bool   `json:"useSampleImage"`
 }
 
-// HealthCheck godoc
-// @Summary Check recognition service health
-// @Tags recognition
-// @Produce json
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/recognition/health [get]
 func (h *RecognitionHandler) HealthCheck(c *gin.Context) {
 	resp, err := h.client.HealthCheck(c.Request.Context())
 	if err != nil {
@@ -56,14 +50,6 @@ func (h *RecognitionHandler) HealthCheck(c *gin.Context) {
 	})
 }
 
-// Ping godoc
-// @Summary Ping recognition service
-// @Tags recognition
-// @Accept json
-// @Produce json
-// @Param request body PingRequest true "Ping request"
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/recognition/ping [post]
 func (h *RecognitionHandler) Ping(c *gin.Context) {
 	var req PingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -86,14 +72,6 @@ func (h *RecognitionHandler) Ping(c *gin.Context) {
 	})
 }
 
-// TestRecognize godoc
-// @Summary Test plate recognition
-// @Tags recognition
-// @Accept json
-// @Produce json
-// @Param request body TestRecognizeRequest true "Test recognize request"
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/recognition/test [post]
 func (h *RecognitionHandler) TestRecognize(c *gin.Context) {
 	var req TestRecognizeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

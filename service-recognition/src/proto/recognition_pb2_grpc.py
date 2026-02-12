@@ -65,6 +65,21 @@ class RecognitionServiceStub(object):
                 request_serializer=recognition__pb2.RTSPStatusRequest.SerializeToString,
                 response_deserializer=recognition__pb2.RTSPStatusResponse.FromString,
                 _registered_method=True)
+        self.StartWorker = channel.unary_unary(
+                '/recognition.RecognitionService/StartWorker',
+                request_serializer=recognition__pb2.StartWorkerRequest.SerializeToString,
+                response_deserializer=recognition__pb2.StartWorkerResponse.FromString,
+                _registered_method=True)
+        self.StopWorker = channel.unary_unary(
+                '/recognition.RecognitionService/StopWorker',
+                request_serializer=recognition__pb2.StopWorkerRequest.SerializeToString,
+                response_deserializer=recognition__pb2.StopWorkerResponse.FromString,
+                _registered_method=True)
+        self.GetWorkerStatus = channel.unary_unary(
+                '/recognition.RecognitionService/GetWorkerStatus',
+                request_serializer=recognition__pb2.GetWorkerStatusRequest.SerializeToString,
+                response_deserializer=recognition__pb2.GetWorkerStatusResponse.FromString,
+                _registered_method=True)
 
 
 class RecognitionServiceServicer(object):
@@ -109,6 +124,25 @@ class RecognitionServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StartWorker(self, request, context):
+        """Worker management
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopWorker(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWorkerStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RecognitionServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -141,6 +175,21 @@ def add_RecognitionServiceServicer_to_server(servicer, server):
                     servicer.GetRTSPStatus,
                     request_deserializer=recognition__pb2.RTSPStatusRequest.FromString,
                     response_serializer=recognition__pb2.RTSPStatusResponse.SerializeToString,
+            ),
+            'StartWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartWorker,
+                    request_deserializer=recognition__pb2.StartWorkerRequest.FromString,
+                    response_serializer=recognition__pb2.StartWorkerResponse.SerializeToString,
+            ),
+            'StopWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopWorker,
+                    request_deserializer=recognition__pb2.StopWorkerRequest.FromString,
+                    response_serializer=recognition__pb2.StopWorkerResponse.SerializeToString,
+            ),
+            'GetWorkerStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWorkerStatus,
+                    request_deserializer=recognition__pb2.GetWorkerStatusRequest.FromString,
+                    response_serializer=recognition__pb2.GetWorkerStatusResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -306,6 +355,87 @@ class RecognitionService(object):
             '/recognition.RecognitionService/GetRTSPStatus',
             recognition__pb2.RTSPStatusRequest.SerializeToString,
             recognition__pb2.RTSPStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StartWorker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/recognition.RecognitionService/StartWorker',
+            recognition__pb2.StartWorkerRequest.SerializeToString,
+            recognition__pb2.StartWorkerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopWorker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/recognition.RecognitionService/StopWorker',
+            recognition__pb2.StopWorkerRequest.SerializeToString,
+            recognition__pb2.StopWorkerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWorkerStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/recognition.RecognitionService/GetWorkerStatus',
+            recognition__pb2.GetWorkerStatusRequest.SerializeToString,
+            recognition__pb2.GetWorkerStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

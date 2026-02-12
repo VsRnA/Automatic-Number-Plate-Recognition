@@ -12,7 +12,6 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/handler"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
-	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/service"
 )
 
 type App struct {
@@ -41,7 +40,6 @@ func (a *App) Run() error {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// Initialize gRPC client for recognition service
 	recognitionClient, err := infrastructure.NewRecognitionClient(cfg.GRPCHost, cfg.GRPCPort)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to recognition service: %v", err)
@@ -50,8 +48,7 @@ func (a *App) Run() error {
 	}
 
 	repositories := repository.NewRepository(db)
-	services := service.NewService(repositories)
-	handlers := handler.NewHandler(*cfg, services, recognitionClient)
+	handlers := handler.NewHandler(*cfg, repositories, recognitionClient)
 
 	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
 

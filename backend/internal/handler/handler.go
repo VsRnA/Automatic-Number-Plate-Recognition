@@ -6,20 +6,22 @@ import (
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
-	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/service"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 )
 
 type Handler struct {
 	Plate       IPlateHandler
+	Camera      ICameraHandler
 	Recognition IRecognitionHandler
 	cfg         config.Config
 }
 
-func NewHandler(cfg config.Config, svc *service.Service, recognitionClient *infrastructure.RecognitionClient) *Handler {
+func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient) *Handler {
 	validate := validator.New()
 
 	return &Handler{
-		Plate:       NewPlateHandler(svc.Plate, validate),
+		Plate:       NewPlateHandler(repo.Plate, validate),
+		Camera:      NewCameraHandler(repo.Camera, recognitionClient, validate),
 		Recognition: NewRecognitionHandler(recognitionClient),
 		cfg:         cfg,
 	}
@@ -39,6 +41,15 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			plates.GET("/:id", h.Plate.GetPlate)
 			plates.PUT("/:id", h.Plate.UpdatePlate)
 			plates.DELETE("/:id", h.Plate.DeletePlate)
+		}
+
+		cameras := api.Group("/cameras")
+		{
+			cameras.POST("", h.Camera.CreateCamera)
+			cameras.GET("", h.Camera.ListCameras)
+			cameras.GET("/:id", h.Camera.GetCamera)
+			cameras.PUT("/:id", h.Camera.UpdateCamera)
+			cameras.DELETE("/:id", h.Camera.DeleteCamera)
 		}
 
 		recognition := api.Group("/recognition")

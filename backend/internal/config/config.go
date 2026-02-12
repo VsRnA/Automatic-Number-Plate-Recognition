@@ -13,7 +13,6 @@ type Config struct {
 	Env      string `env:"ENV"`
 	HTTPPort string `env:"HTTP_PORT"`
 
-	// Database
 	DBHost string `env:"DB_HOST"`
 	DBPort string `env:"DB_PORT"`
 	DBName string `env:"DB_NAME"`
@@ -21,16 +20,13 @@ type Config struct {
 	DBPass string `env:"DB_PASS"`
 	DBSsl  string `env:"DB_SSL"`
 
-	// Redis
 	RedisHost   string `env:"REDIS_HOST"`
 	RedisPort   string `env:"REDIS_PORT"`
 	RedisStream string `env:"REDIS_STREAM"`
 
-	// gRPC
 	GRPCHost string `env:"GRPC_HOST"`
 	GRPCPort string `env:"GRPC_PORT"`
 
-	// S3
 	S3Endpoint  string `env:"S3_ENDPOINT"`
 	S3AccessKey string `env:"S3_ACCESS_KEY"`
 	S3SecretKey string `env:"S3_SECRET_KEY"`
@@ -46,7 +42,6 @@ func LoadEnv() (*Config, error) {
 		Env:      getEnv("ENV", "development"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
 
-		// Database
 		DBHost: getEnv("DB_HOST", "localhost"),
 		DBPort: getEnv("DB_PORT", "5432"),
 		DBName: getEnv("DB_NAME", "anpr"),
@@ -54,16 +49,13 @@ func LoadEnv() (*Config, error) {
 		DBPass: getEnv("DB_PASS", "anrpPostgres"),
 		DBSsl:  getEnv("DB_SSL", "disable"),
 
-		// Redis
 		RedisHost:   getEnv("REDIS_HOST", "localhost"),
 		RedisPort:   getEnv("REDIS_PORT", "6379"),
 		RedisStream: getEnv("REDIS_STREAM", "anpr:results"),
 
-		// gRPC
 		GRPCHost: getEnv("GRPC_HOST", "localhost"),
 		GRPCPort: getEnv("GRPC_PORT", "50051"),
 
-		// S3
 		S3Endpoint:  getEnv("S3_ENDPOINT", ""),
 		S3AccessKey: getEnv("S3_ACCESS_KEY", ""),
 		S3SecretKey: getEnv("S3_SECRET_KEY", ""),

@@ -4,8 +4,10 @@ from datetime import datetime
 
 import grpc
 
+from src.domain.worker import WorkerStatus
 from src.proto import recognition_pb2, recognition_pb2_grpc
 from src.service.recognition_service import RecognitionService
+from src.service.worker_manager import worker_manager
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +88,43 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
             plates_detected=0,
             started_at="",
             error="Not implemented yet",
+        )
+
+    def StartWorker(self, request, context):
+        """Start a worker for camera recognition."""
+        success, message = worker_manager.start_worker(
+            request.camera_id, request.rtsp_url
+        )
+        return recognition_pb2.StartWorkerResponse(
+            success=success,
+            message=message if success else "",
+            error="" if success else message,
+        )
+
+    def StopWorker(self, request, context):
+        """Stop a worker for camera recognition."""
+        success, message = worker_manager.stop_worker(request.camera_id)
+        return recognition_pb2.StopWorkerResponse(
+            success=success,
+            message=message if success else "",
+            error="" if success else message,
+        )
+
+    def GetWorkerStatus(self, request, context):
+        """Get worker status for a camera."""
+        worker = worker_manager.get_worker_status(request.camera_id)
+        if worker is None:
+            return recognition_pb2.GetWorkerStatusResponse(
+                camera_id=request.camera_id,
+                status=WorkerStatus.STOPPED.value,
+                started_at="",
+                error="Worker not found",
+            )
+        return recognition_pb2.GetWorkerStatusResponse(
+            camera_id=worker.camera_id,
+            status=worker.status.value,
+            started_at=worker.started_at.isoformat() if worker.started_at else "",
+            error=worker.error,
         )
 
 

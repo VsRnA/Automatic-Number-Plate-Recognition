@@ -13,7 +13,7 @@ type Plate struct {
 	AccessType string     `json:"accessType" gorm:"column:accessType;size:50;not null"`
 	ValidUntil *time.Time `json:"validUntil" gorm:"column:validUntil"`
 	Comment    string     `json:"comment" gorm:"column:comment;size:255"`
-	IsActive   bool       `json:"isActive" gorm:"column:isActive;default:true"`
+	IsEnabled  bool       `json:"isEnabled" gorm:"column:isEnabled;default:true"`
 	CreatedAt  time.Time  `json:"createdAt" gorm:"column:createdAt"`
 }
 
@@ -27,7 +27,7 @@ type CreatePlateRequest struct {
 	AccessType string     `json:"accessType" validate:"required,max=50"`
 	ValidUntil *time.Time `json:"validUntil"`
 	Comment    string     `json:"comment" validate:"max=255"`
-	IsActive   *bool      `json:"isActive"`
+	IsEnabled  *bool      `json:"isEnabled"`
 }
 
 type UpdatePlateRequest struct {
@@ -36,7 +36,7 @@ type UpdatePlateRequest struct {
 	AccessType string     `json:"accessType" validate:"max=50"`
 	ValidUntil *time.Time `json:"validUntil"`
 	Comment    string     `json:"comment" validate:"max=255"`
-	IsActive   *bool      `json:"isActive"`
+	IsEnabled  *bool      `json:"isEnabled"`
 }
 
 type PlateResponse struct {
@@ -46,6 +46,6 @@ type PlateResponse struct {
 	AccessType string     `json:"accessType"`
 	ValidUntil *time.Time `json:"validUntil"`
 	Comment    string     `json:"comment"`
-	IsActive   bool       `json:"isActive"`
+	IsEnabled  bool       `json:"isEnabled"`
 	CreatedAt  time.Time  `json:"createdAt"`
 }

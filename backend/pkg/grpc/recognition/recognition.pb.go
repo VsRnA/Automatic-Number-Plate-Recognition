@@ -843,6 +843,335 @@ func (x *RTSPStatusResponse) GetError() string {
 	return ""
 }
 
+// Worker management messages
+type StartWorkerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CameraId      string                 `protobuf:"bytes,1,opt,name=camera_id,json=cameraId,proto3" json:"camera_id,omitempty"`
+	RtspUrl       string                 `protobuf:"bytes,2,opt,name=rtsp_url,json=rtspUrl,proto3" json:"rtsp_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartWorkerRequest) Reset() {
+	*x = StartWorkerRequest{}
+	mi := &file_recognition_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartWorkerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartWorkerRequest) ProtoMessage() {}
+
+func (x *StartWorkerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartWorkerRequest.ProtoReflect.Descriptor instead.
+func (*StartWorkerRequest) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *StartWorkerRequest) GetCameraId() string {
+	if x != nil {
+		return x.CameraId
+	}
+	return ""
+}
+
+func (x *StartWorkerRequest) GetRtspUrl() string {
+	if x != nil {
+		return x.RtspUrl
+	}
+	return ""
+}
+
+type StartWorkerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartWorkerResponse) Reset() {
+	*x = StartWorkerResponse{}
+	mi := &file_recognition_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartWorkerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartWorkerResponse) ProtoMessage() {}
+
+func (x *StartWorkerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartWorkerResponse.ProtoReflect.Descriptor instead.
+func (*StartWorkerResponse) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *StartWorkerResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *StartWorkerResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *StartWorkerResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type StopWorkerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CameraId      string                 `protobuf:"bytes,1,opt,name=camera_id,json=cameraId,proto3" json:"camera_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopWorkerRequest) Reset() {
+	*x = StopWorkerRequest{}
+	mi := &file_recognition_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopWorkerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopWorkerRequest) ProtoMessage() {}
+
+func (x *StopWorkerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopWorkerRequest.ProtoReflect.Descriptor instead.
+func (*StopWorkerRequest) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *StopWorkerRequest) GetCameraId() string {
+	if x != nil {
+		return x.CameraId
+	}
+	return ""
+}
+
+type StopWorkerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopWorkerResponse) Reset() {
+	*x = StopWorkerResponse{}
+	mi := &file_recognition_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopWorkerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopWorkerResponse) ProtoMessage() {}
+
+func (x *StopWorkerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopWorkerResponse.ProtoReflect.Descriptor instead.
+func (*StopWorkerResponse) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *StopWorkerResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *StopWorkerResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *StopWorkerResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type GetWorkerStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CameraId      string                 `protobuf:"bytes,1,opt,name=camera_id,json=cameraId,proto3" json:"camera_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkerStatusRequest) Reset() {
+	*x = GetWorkerStatusRequest{}
+	mi := &file_recognition_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkerStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkerStatusRequest) ProtoMessage() {}
+
+func (x *GetWorkerStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkerStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetWorkerStatusRequest) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetWorkerStatusRequest) GetCameraId() string {
+	if x != nil {
+		return x.CameraId
+	}
+	return ""
+}
+
+type GetWorkerStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CameraId      string                 `protobuf:"bytes,1,opt,name=camera_id,json=cameraId,proto3" json:"camera_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"` // "running", "stopped", "error"
+	StartedAt     string                 `protobuf:"bytes,3,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	Error         string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkerStatusResponse) Reset() {
+	*x = GetWorkerStatusResponse{}
+	mi := &file_recognition_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkerStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkerStatusResponse) ProtoMessage() {}
+
+func (x *GetWorkerStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkerStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetWorkerStatusResponse) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetWorkerStatusResponse) GetCameraId() string {
+	if x != nil {
+		return x.CameraId
+	}
+	return ""
+}
+
+func (x *GetWorkerStatusResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *GetWorkerStatusResponse) GetStartedAt() string {
+	if x != nil {
+		return x.StartedAt
+	}
+	return ""
+}
+
+func (x *GetWorkerStatusResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_recognition_proto protoreflect.FileDescriptor
 
 const file_recognition_proto_rawDesc = "" +
@@ -907,14 +1236,39 @@ const file_recognition_proto_rawDesc = "" +
 	"\x0fplates_detected\x18\x04 \x01(\x03R\x0eplatesDetected\x12\x1d\n" +
 	"\n" +
 	"started_at\x18\x05 \x01(\tR\tstartedAt\x12\x14\n" +
-	"\x05error\x18\x06 \x01(\tR\x05error2\xde\x03\n" +
+	"\x05error\x18\x06 \x01(\tR\x05error\"L\n" +
+	"\x12StartWorkerRequest\x12\x1b\n" +
+	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\x12\x19\n" +
+	"\brtsp_url\x18\x02 \x01(\tR\artspUrl\"_\n" +
+	"\x13StartWorkerResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"0\n" +
+	"\x11StopWorkerRequest\x12\x1b\n" +
+	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\"^\n" +
+	"\x12StopWorkerResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\"5\n" +
+	"\x16GetWorkerStatusRequest\x12\x1b\n" +
+	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\"\x83\x01\n" +
+	"\x17GetWorkerStatusResponse\x12\x1b\n" +
+	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\x03 \x01(\tR\tstartedAt\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error2\xdd\x05\n" +
 	"\x12RecognitionService\x12>\n" +
 	"\vHealthCheck\x12\x12.recognition.Empty\x1a\x1b.recognition.HealthResponse\x12;\n" +
 	"\x04Ping\x12\x18.recognition.PingRequest\x1a\x19.recognition.PingResponse\x12V\n" +
 	"\rTestRecognize\x12!.recognition.TestRecognizeRequest\x1a\".recognition.TestRecognizeResponse\x12M\n" +
 	"\x11RecognizeFromRTSP\x12\x18.recognition.RTSPRequest\x1a\x1e.recognition.RecognizeResponse\x12R\n" +
 	"\x13StopRTSPRecognition\x12\x1c.recognition.StopRTSPRequest\x1a\x1d.recognition.StopRTSPResponse\x12P\n" +
-	"\rGetRTSPStatus\x12\x1e.recognition.RTSPStatusRequest\x1a\x1f.recognition.RTSPStatusResponseBJZHgithub.com/VsRnA/Automatic-Number-Plate-Recognition/pkg/grpc/recognitionb\x06proto3"
+	"\rGetRTSPStatus\x12\x1e.recognition.RTSPStatusRequest\x1a\x1f.recognition.RTSPStatusResponse\x12P\n" +
+	"\vStartWorker\x12\x1f.recognition.StartWorkerRequest\x1a .recognition.StartWorkerResponse\x12M\n" +
+	"\n" +
+	"StopWorker\x12\x1e.recognition.StopWorkerRequest\x1a\x1f.recognition.StopWorkerResponse\x12\\\n" +
+	"\x0fGetWorkerStatus\x12#.recognition.GetWorkerStatusRequest\x1a$.recognition.GetWorkerStatusResponseBJZHgithub.com/VsRnA/Automatic-Number-Plate-Recognition/pkg/grpc/recognitionb\x06proto3"
 
 var (
 	file_recognition_proto_rawDescOnce sync.Once
@@ -928,22 +1282,28 @@ func file_recognition_proto_rawDescGZIP() []byte {
 	return file_recognition_proto_rawDescData
 }
 
-var file_recognition_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_recognition_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_recognition_proto_goTypes = []any{
-	(*Empty)(nil),                 // 0: recognition.Empty
-	(*HealthResponse)(nil),        // 1: recognition.HealthResponse
-	(*PingRequest)(nil),           // 2: recognition.PingRequest
-	(*PingResponse)(nil),          // 3: recognition.PingResponse
-	(*TestRecognizeRequest)(nil),  // 4: recognition.TestRecognizeRequest
-	(*TestRecognizeResponse)(nil), // 5: recognition.TestRecognizeResponse
-	(*PlateResult)(nil),           // 6: recognition.PlateResult
-	(*BoundingBox)(nil),           // 7: recognition.BoundingBox
-	(*RTSPRequest)(nil),           // 8: recognition.RTSPRequest
-	(*RecognizeResponse)(nil),     // 9: recognition.RecognizeResponse
-	(*StopRTSPRequest)(nil),       // 10: recognition.StopRTSPRequest
-	(*StopRTSPResponse)(nil),      // 11: recognition.StopRTSPResponse
-	(*RTSPStatusRequest)(nil),     // 12: recognition.RTSPStatusRequest
-	(*RTSPStatusResponse)(nil),    // 13: recognition.RTSPStatusResponse
+	(*Empty)(nil),                   // 0: recognition.Empty
+	(*HealthResponse)(nil),          // 1: recognition.HealthResponse
+	(*PingRequest)(nil),             // 2: recognition.PingRequest
+	(*PingResponse)(nil),            // 3: recognition.PingResponse
+	(*TestRecognizeRequest)(nil),    // 4: recognition.TestRecognizeRequest
+	(*TestRecognizeResponse)(nil),   // 5: recognition.TestRecognizeResponse
+	(*PlateResult)(nil),             // 6: recognition.PlateResult
+	(*BoundingBox)(nil),             // 7: recognition.BoundingBox
+	(*RTSPRequest)(nil),             // 8: recognition.RTSPRequest
+	(*RecognizeResponse)(nil),       // 9: recognition.RecognizeResponse
+	(*StopRTSPRequest)(nil),         // 10: recognition.StopRTSPRequest
+	(*StopRTSPResponse)(nil),        // 11: recognition.StopRTSPResponse
+	(*RTSPStatusRequest)(nil),       // 12: recognition.RTSPStatusRequest
+	(*RTSPStatusResponse)(nil),      // 13: recognition.RTSPStatusResponse
+	(*StartWorkerRequest)(nil),      // 14: recognition.StartWorkerRequest
+	(*StartWorkerResponse)(nil),     // 15: recognition.StartWorkerResponse
+	(*StopWorkerRequest)(nil),       // 16: recognition.StopWorkerRequest
+	(*StopWorkerResponse)(nil),      // 17: recognition.StopWorkerResponse
+	(*GetWorkerStatusRequest)(nil),  // 18: recognition.GetWorkerStatusRequest
+	(*GetWorkerStatusResponse)(nil), // 19: recognition.GetWorkerStatusResponse
 }
 var file_recognition_proto_depIdxs = []int32{
 	6,  // 0: recognition.TestRecognizeResponse.plates:type_name -> recognition.PlateResult
@@ -954,14 +1314,20 @@ var file_recognition_proto_depIdxs = []int32{
 	8,  // 5: recognition.RecognitionService.RecognizeFromRTSP:input_type -> recognition.RTSPRequest
 	10, // 6: recognition.RecognitionService.StopRTSPRecognition:input_type -> recognition.StopRTSPRequest
 	12, // 7: recognition.RecognitionService.GetRTSPStatus:input_type -> recognition.RTSPStatusRequest
-	1,  // 8: recognition.RecognitionService.HealthCheck:output_type -> recognition.HealthResponse
-	3,  // 9: recognition.RecognitionService.Ping:output_type -> recognition.PingResponse
-	5,  // 10: recognition.RecognitionService.TestRecognize:output_type -> recognition.TestRecognizeResponse
-	9,  // 11: recognition.RecognitionService.RecognizeFromRTSP:output_type -> recognition.RecognizeResponse
-	11, // 12: recognition.RecognitionService.StopRTSPRecognition:output_type -> recognition.StopRTSPResponse
-	13, // 13: recognition.RecognitionService.GetRTSPStatus:output_type -> recognition.RTSPStatusResponse
-	8,  // [8:14] is the sub-list for method output_type
-	2,  // [2:8] is the sub-list for method input_type
+	14, // 8: recognition.RecognitionService.StartWorker:input_type -> recognition.StartWorkerRequest
+	16, // 9: recognition.RecognitionService.StopWorker:input_type -> recognition.StopWorkerRequest
+	18, // 10: recognition.RecognitionService.GetWorkerStatus:input_type -> recognition.GetWorkerStatusRequest
+	1,  // 11: recognition.RecognitionService.HealthCheck:output_type -> recognition.HealthResponse
+	3,  // 12: recognition.RecognitionService.Ping:output_type -> recognition.PingResponse
+	5,  // 13: recognition.RecognitionService.TestRecognize:output_type -> recognition.TestRecognizeResponse
+	9,  // 14: recognition.RecognitionService.RecognizeFromRTSP:output_type -> recognition.RecognizeResponse
+	11, // 15: recognition.RecognitionService.StopRTSPRecognition:output_type -> recognition.StopRTSPResponse
+	13, // 16: recognition.RecognitionService.GetRTSPStatus:output_type -> recognition.RTSPStatusResponse
+	15, // 17: recognition.RecognitionService.StartWorker:output_type -> recognition.StartWorkerResponse
+	17, // 18: recognition.RecognitionService.StopWorker:output_type -> recognition.StopWorkerResponse
+	19, // 19: recognition.RecognitionService.GetWorkerStatus:output_type -> recognition.GetWorkerStatusResponse
+	11, // [11:20] is the sub-list for method output_type
+	2,  // [2:11] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -978,7 +1344,7 @@ func file_recognition_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_recognition_proto_rawDesc), len(file_recognition_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -15,6 +15,11 @@ service RecognitionService {
   rpc RecognizeFromRTSP(RTSPRequest) returns (RecognizeResponse);
   rpc StopRTSPRecognition(StopRTSPRequest) returns (StopRTSPResponse);
   rpc GetRTSPStatus(RTSPStatusRequest) returns (RTSPStatusResponse);
+
+  // Worker management
+  rpc StartWorker(StartWorkerRequest) returns (StartWorkerResponse);
+  rpc StopWorker(StopWorkerRequest) returns (StopWorkerResponse);
+  rpc GetWorkerStatus(GetWorkerStatusRequest) returns (GetWorkerStatusResponse);
 }
 
 // Empty message for requests without parameters
@@ -108,4 +113,37 @@ message RTSPStatusResponse {
   int64 plates_detected = 4;
   string started_at = 5;
   string error = 6;
+}
+
+// Worker management messages
+message StartWorkerRequest {
+  string camera_id = 1;
+  string rtsp_url = 2;
+}
+
+message StartWorkerResponse {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+}
+
+message StopWorkerRequest {
+  string camera_id = 1;
+}
+
+message StopWorkerResponse {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+}
+
+message GetWorkerStatusRequest {
+  string camera_id = 1;
+}
+
+message GetWorkerStatusResponse {
+  string camera_id = 1;
+  string status = 2;  // "running", "stopped", "error"
+  string started_at = 3;
+  string error = 4;
 }

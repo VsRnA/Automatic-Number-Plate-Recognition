@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -10,7 +11,7 @@ import (
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/exception"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/model"
-	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/service"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 )
 
 type IPlateHandler interface {
@@ -22,14 +23,22 @@ type IPlateHandler interface {
 }
 
 type PlateHandler struct {
-	service  service.IPlateService
+	plate    *plateDeps
 	validate *validator.Validate
+	entity   string
 }
 
-func NewPlateHandler(svc service.IPlateService, validate *validator.Validate) IPlateHandler {
+type plateDeps struct {
+	repo repository.IPlateRepository
+}
+
+func NewPlateHandler(repo repository.IPlateRepository, validate *validator.Validate) IPlateHandler {
 	return &PlateHandler{
-		service:  svc,
+		plate: &plateDeps{
+			repo: repo,
+		},
 		validate: validate,
+		entity:   "plate",
 	}
 }
 
@@ -40,9 +49,31 @@ func (h *PlateHandler) CreatePlate(c *gin.Context) {
 		return
 	}
 
-	plate, apiErr := h.service.CreatePlate(&req)
-	if apiErr != nil {
-		exception.HttpResponseException(c, apiErr)
+	existing, err := h.plate.repo.Get(&repository.PlateFilters{Number: &req.Number})
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed to check existing plate: "+err.Error()))
+		return
+	}
+	if existing != nil {
+		exception.HttpResponseException(c, exception.EntityAlreadyExistsError(h.entity, fmt.Sprintf("number: %s", req.Number)))
+		return
+	}
+
+	plate := &model.Plate{
+		Number:     req.Number,
+		Region:     req.Region,
+		AccessType: req.AccessType,
+		ValidUntil: req.ValidUntil,
+		Comment:    req.Comment,
+		IsEnabled:  true,
+	}
+
+	if req.IsEnabled != nil {
+		plate.IsEnabled = *req.IsEnabled
+	}
+
+	if err := h.plate.repo.Create(plate); err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed plate creating: "+err.Error()))
 		return
 	}
 
@@ -56,9 +87,14 @@ func (h *PlateHandler) GetPlate(c *gin.Context) {
 		return
 	}
 
-	plate, apiErr := h.service.GetPlate(id)
-	if apiErr != nil {
-		exception.HttpResponseException(c, apiErr)
+	plate, err := h.plate.repo.Find(id)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed find plate: "+err.Error()))
+		return
+	}
+
+	if plate == nil {
+		exception.HttpResponseException(c, exception.EntityNotFoundError(h.entity, fmt.Sprintf("id: %s", id)))
 		return
 	}
 
@@ -78,9 +114,38 @@ func (h *PlateHandler) UpdatePlate(c *gin.Context) {
 		return
 	}
 
-	plate, apiErr := h.service.UpdatePlate(id, &req)
-	if apiErr != nil {
-		exception.HttpResponseException(c, apiErr)
+	plate, err := h.plate.repo.Find(id)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed find plate: "+err.Error()))
+		return
+	}
+
+	if plate == nil {
+		exception.HttpResponseException(c, exception.EntityNotFoundError(h.entity, fmt.Sprintf("id: %s", id)))
+		return
+	}
+
+	if req.Number != "" {
+		plate.Number = req.Number
+	}
+	if req.Region != "" {
+		plate.Region = req.Region
+	}
+	if req.AccessType != "" {
+		plate.AccessType = req.AccessType
+	}
+	if req.ValidUntil != nil {
+		plate.ValidUntil = req.ValidUntil
+	}
+	if req.Comment != "" {
+		plate.Comment = req.Comment
+	}
+	if req.IsEnabled != nil {
+		plate.IsEnabled = *req.IsEnabled
+	}
+
+	if err := h.plate.repo.Update(plate); err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed update plate: "+err.Error()))
 		return
 	}
 
@@ -94,9 +159,19 @@ func (h *PlateHandler) DeletePlate(c *gin.Context) {
 		return
 	}
 
-	apiErr := h.service.DeletePlate(id)
-	if apiErr != nil {
-		exception.HttpResponseException(c, apiErr)
+	plate, err := h.plate.repo.Find(id)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed find plate: "+err.Error()))
+		return
+	}
+
+	if plate == nil {
+		exception.HttpResponseException(c, exception.EntityNotFoundError(h.entity, fmt.Sprintf("id: %s", id)))
+		return
+	}
+
+	if err := h.plate.repo.Delete(id); err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed plate delete: "+err.Error()))
 		return
 	}
 
@@ -104,12 +179,41 @@ func (h *PlateHandler) DeletePlate(c *gin.Context) {
 }
 
 func (h *PlateHandler) ListPlates(c *gin.Context) {
+	filters := &repository.PlateFilters{}
+
+	if number := c.Query("number"); number != "" {
+		filters.Number = &number
+	}
+
+	if isEnabledStr := c.Query("isEnabled"); isEnabledStr != "" {
+		if isEnabledStr == "true" {
+			isEnabled := true
+			filters.IsEnabled = &isEnabled
+		} else if isEnabledStr == "false" {
+			isEnabled := false
+			filters.IsEnabled = &isEnabled
+		}
+	}
+
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	plates, apiErr := h.service.ListPlates(limit, offset)
-	if apiErr != nil {
-		exception.HttpResponseException(c, apiErr)
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	filters.Limit = limit
+	filters.Offset = offset
+
+	plates, err := h.plate.repo.List(filters)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed plate list: "+err.Error()))
 		return
 	}
 
