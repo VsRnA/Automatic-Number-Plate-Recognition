@@ -20,9 +20,9 @@ class Settings(BaseSettings):
     s3_endpoint: str = ""
     s3_access_key: str = ""
     s3_secret_key: str = ""
-    s3_bucket: str = "anpr"
+    s3_bucket: str = ""
     s3_use_ssl: bool = False
-    s3_region: str = "us-east-1"
+    s3_region: str = ""
 
     # Worker settings
     frame_interval: int = 30  # Process every 30th frame (1fps @ 30fps)
@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     yolo_model_path: str = "yolov8n.pt"
     ocr_languages: list[str] = ["en", "ru"]
     ocr_gpu: bool = True
+
+    min_vehicle_area_ratio: float = 0.08
+    min_vehicle_width: int = 180
+    min_vehicle_height: int = 120
+    detection_zone: tuple[float, float, float, float] | None = (0.1, 0.4, 0.9, 1.0)
 
     @property
     def go_backend_url(self) -> str:

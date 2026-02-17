@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 

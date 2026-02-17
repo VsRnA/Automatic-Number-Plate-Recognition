@@ -84,7 +84,7 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
 
     def StartWorker(self, request, context):
         success, message = worker_manager.start_worker(
-            request.camera_id, request.stream
+            request.camera_id, request.rtsp_url
         )
         return recognition_pb2.StartWorkerResponse(
             success=success,

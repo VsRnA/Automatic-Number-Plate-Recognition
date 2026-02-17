@@ -2,6 +2,7 @@ import logging
 import socket
 import threading
 import time
+from collections import Counter, deque
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
@@ -12,6 +13,90 @@ import numpy as np
 from src.domain.worker import Worker, WorkerStatus
 
 logger = logging.getLogger(__name__)
+
+
+class PlateVotingBuffer:
+    """
+    Накапливает OCR-результаты по нескольким кадрам и возвращает
+    победителя через голосование по каждому символу.
+
+    Например, при readings = ['A965TO43', 'A965TC63', 'A965TO43', 'A965TO93']:
+      позиция 5: O(3) > C(1) → O
+      позиция 6: 4(2) > 6(1) = 9(1) → 4
+      позиция 7: 3(4) → 3
+    Результат: 'A965TO43'
+    """
+
+    def __init__(
+        self,
+        min_votes: int = 3,
+        buffer_size: int = 10,
+        stale_frames: int = 10,
+    ):
+        self.min_votes = min_votes
+        self._readings: deque[str] = deque(maxlen=buffer_size)
+        self._stale_frames = stale_frames
+        self._frames_without_reading = 0
+        self._last_sent: str | None = None
+
+    def on_frame(self, plate: str | None) -> str | None:
+        """
+        Вызывать на каждом обработанном кадре.
+        plate: распознанный номер или None если не найден.
+        Возвращает проголосованный номер если готов, иначе None.
+        """
+        if plate is None:
+            self._frames_without_reading += 1
+            if self._frames_without_reading >= self._stale_frames:
+                # Машина уехала — сбрасываем буфер и last_sent
+                self._readings.clear()
+                self._last_sent = None
+                self._frames_without_reading = 0
+                logger.debug("PlateVotingBuffer: reset (vehicle left)")
+            return None
+
+        self._frames_without_reading = 0
+        self._readings.append(plate)
+        logger.debug(
+            f"PlateVotingBuffer: added {plate!r}, buffer={list(self._readings)}"
+        )
+
+        if len(self._readings) < self.min_votes:
+            return None
+
+        voted = self._vote()
+        if voted and voted != self._last_sent:
+            self._last_sent = voted
+            self._readings.clear()
+            logger.info(f"PlateVotingBuffer: voted result → {voted!r}")
+            return voted
+
+        return None
+
+    def _vote(self) -> str | None:
+        readings = list(self._readings)
+
+        # Берём доминирующую длину (стандарт РФ: 8 или 9 символов)
+        lengths = Counter(len(r) for r in readings)
+        dominant_length = lengths.most_common(1)[0][0]
+        same_length = [r for r in readings if len(r) == dominant_length]
+
+        if len(same_length) < self.min_votes:
+            return None
+
+        result = []
+        for pos in range(dominant_length):
+            chars = [r[pos] for r in same_length]
+            voted_char, vote_count = Counter(chars).most_common(1)[0]
+            # Требуем строгое большинство (>50%)
+            if vote_count * 2 <= len(same_length):
+                logger.debug(
+                    f"PlateVotingBuffer: no majority at pos {pos}: {Counter(chars)}"
+                )
+                return None
+            result.append(voted_char)
+
+        return ''.join(result)
 
 
 class WorkerThread(threading.Thread):
@@ -36,6 +121,11 @@ class WorkerThread(threading.Thread):
 
         self._stop_event = threading.Event()
         self._frame_count = 0
+        self._voting_buffer = PlateVotingBuffer(
+            min_votes=3,
+            buffer_size=10,
+            stale_frames=10,
+        )
 
         logger.info(
             f"WorkerThread initialized for camera {worker.camera_id}, "
@@ -167,6 +257,12 @@ class WorkerThread(threading.Thread):
             f"Processing frame {self._frame_count} for camera {self.worker.camera_id}"
         )
 
+        # Обрезаем кадр снизу на 250px
+        height = frame.shape[0]
+        if height > 250:
+            frame = frame[0:height-250, :]
+            logger.debug(f"Frame cropped from bottom by 250px, new height: {frame.shape[0]}")
+
         result = self.recognition_service.recognize_from_frame(frame)
 
         plates_count = len(result.plates) if result.success else 0
@@ -178,6 +274,7 @@ class WorkerThread(threading.Thread):
             logger.error(
                 f"Recognition failed for camera {self.worker.camera_id}: {result.error}"
             )
+            self._voting_buffer.on_frame(None)
             return
 
         if result.plates:
@@ -186,42 +283,49 @@ class WorkerThread(threading.Thread):
                     f"  Plate {i}: '{plate.plate_number}' (confidence: {plate.confidence:.2f})"
                 )
 
-        plates = [
-            {
-                "plate_number": plate.plate_number,
-                "confidence": plate.confidence,
-                "bounding_box": {
-                    "x": plate.bounding_box.x,
-                    "y": plate.bounding_box.y,
-                    "width": plate.bounding_box.width,
-                    "height": plate.bounding_box.height,
-                },
-            }
-            for plate in result.plates
-        ]
+        # Берём лучшую пластину по confidence среди прошедших порог
+        best_plate = None
+        for plate in result.plates:
+            if plate.confidence >= self.confidence_threshold:
+                if best_plate is None or plate.confidence > best_plate.confidence:
+                    best_plate = plate
 
-        filtered_plates = [p for p in plates if p["confidence"] >= self.confidence_threshold]
+        # Передаём в буфер голосования (None если ничего не нашли)
+        plate_number = best_plate.plate_number if best_plate else None
+        voted_plate = self._voting_buffer.on_frame(plate_number)
 
+        if voted_plate is None:
+            return
+
+        # Буфер проголосовал — отправляем в Redis
         logger.info(
-            f"Filtered {len(filtered_plates)}/{len(plates)} plates (threshold: {self.confidence_threshold})"
+            f"Voted plate for camera {self.worker.camera_id}: '{voted_plate}' "
+            f"(processing time: {result.processing_time_ms}ms)"
         )
 
-        if filtered_plates:
-            logger.info(
-                f"Sending {len(filtered_plates)} plates to Redis for camera {self.worker.camera_id} "
-                f"(processing time: {result.processing_time_ms}ms)"
-            )
+        payload = [
+            {
+                "plate_number": voted_plate,
+                "confidence": best_plate.confidence if best_plate else 0.0,
+                "bounding_box": {
+                    "x": best_plate.bounding_box.x,
+                    "y": best_plate.bounding_box.y,
+                    "width": best_plate.bounding_box.width,
+                    "height": best_plate.bounding_box.height,
+                } if best_plate else {"x": 0, "y": 0, "width": 0, "height": 0},
+            }
+        ]
 
-            try:
-                self.redis_producer.send_recognition_result(
-                    camera_id=self.worker.camera_id,
-                    plates=filtered_plates,
-                    timestamp=datetime.now(timezone.utc),
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to send result to Redis for camera {self.worker.camera_id}: {e}"
-                )
+        try:
+            self.redis_producer.send_recognition_result(
+                camera_id=self.worker.camera_id,
+                plates=payload,
+                timestamp=datetime.now(timezone.utc),
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to send result to Redis for camera {self.worker.camera_id}: {e}"
+            )
 
     def stop(self, timeout: float = 5.0):
         logger.info(f"Stopping worker for camera {self.worker.camera_id}")
