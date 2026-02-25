@@ -87,3 +87,9 @@ htmlcov/
 
 # Local data (Docker volumes)
 redis_data/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
