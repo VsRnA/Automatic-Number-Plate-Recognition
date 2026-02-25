@@ -10,7 +10,6 @@ services:
     depends_on:
       - postgres
       - redis
-      - service-recognition
     environment:
       - DB_HOST=postgres
       - DB_PORT=${DB_PORT}
@@ -51,87 +50,33 @@ services:
       - redis_data:/data
     restart: unless-stopped
 
-  service-recognition:
-    build:
-      context: ../service-recognition
-      dockerfile: Dockerfile
-    ports:
-      - "50051:50051"
-    volumes:
-      - ../service-recognition/src:/app/src
-      - easyocr_cache:/root/.EasyOCR  # Cache for EasyOCR models
-    depends_on:
-      - redis
-      - mediamtx
-    environment:
-      - GRPC_PORT=50051
-      - GO_BACKEND_HOST=backend
-      - GO_BACKEND_PORT=8080
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_STREAM=recognition:results
-      - CONFIDENCE_THRESHOLD=0.3
-      - FRAME_INTERVAL=30
-      - S3_ENDPOINT=${S3_ENDPOINT}
-      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
-      - S3_SECRET_KEY=${S3_SECRET_KEY}
-      - S3_BUCKET=${S3_BUCKET}
-      - S3_USE_SSL=${S3_USE_SSL:-false}
-      - S3_REGION=${S3_REGION:-us-east-1}
-    restart: unless-stopped
-
-  # MediaMTX - RTSP сервер
-  mediamtx:
-    image: bluenviron/mediamtx:latest
-    ports:
-      - "8554:8554"     # RTSP
-      - "9997:9997"     # HTTP API
-    volumes:
-      - ../video/mediamtx.yml:/mediamtx.yml:ro
-    restart: unless-stopped
-
-  # FFmpeg - читает видео и стримит в MediaMTX
-  rtsp-streamer:
-    image: jrottenberg/ffmpeg:latest
-    depends_on:
-      - mediamtx
-    volumes:
-      - ../video:/video:ro
-    command:
-      - -re
-      - -stream_loop
-      - "-1"
-      - -i
-      - /video/00000012.MOV
-      - -c:v
-      - libx264
-      - -preset
-      - medium
-      - -profile:v
-      - baseline
-      - -level
-      - "3.1"
-      - -pix_fmt
-      - yuv420p
-      - -r
-      - "25"
-      - -g
-      - "50"
-      - -b:v
-      - 2M
-      - -maxrate
-      - 2M
-      - -bufsize
-      - 4M
-      - -an
-      - -f
-      - rtsp
-      - -rtsp_transport
-      - tcp
-      - rtsp://mediamtx:8554/camera1
-    restart: unless-stopped
+  # service-recognition:
+  #   build:
+  #     context: ../service-recognition
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "50051:50051"
+  #   volumes:
+  #     - ../service-recognition/src:/app/src
+  #   depends_on:
+  #     - redis
+  #   environment:
+  #     - GRPC_PORT=50051
+  #     - GO_BACKEND_HOST=backend
+  #     - GO_BACKEND_PORT=8080
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #     - REDIS_STREAM=recognition:results
+  #     - CONFIDENCE_THRESHOLD=0.3
+  #     - FRAME_INTERVAL=30
+  #     - S3_ENDPOINT=${S3_ENDPOINT}
+  #     - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+  #     - S3_SECRET_KEY=${S3_SECRET_KEY}
+  #     - S3_BUCKET=${S3_BUCKET}
+  #     - S3_USE_SSL=${S3_USE_SSL:-false}
+  #     - S3_REGION=${S3_REGION:-us-east-1}
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
-  easyocr_cache:
