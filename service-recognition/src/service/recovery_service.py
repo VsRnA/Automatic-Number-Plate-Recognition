@@ -7,16 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 class RecoveryService:
-    """Service for recovering workers on startup."""
-
     def __init__(self, backend_url: str):
         self.http_client = BackendHTTPClient(backend_url)
 
     def recover_workers(self) -> int:
-        """
-        Recover workers from Go backend.
-        Returns the number of workers started.
-        """
         logger.info("Starting worker recovery...")
 
         cameras = self.http_client.get_active_cameras()
@@ -28,7 +22,7 @@ class RecoveryService:
         for camera in cameras:
             success, message = worker_manager.start_worker(
                 camera_id=camera.guid,
-                rtsp_url=camera.rtsp_url,
+                stream=camera.stream,
             )
             if success:
                 started_count += 1

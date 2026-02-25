@@ -93,11 +93,12 @@ func (h *CameraHandler) CreateCamera(c *gin.Context) {
 		return
 	}
 
-	if camera.IsEnabled {
-		if err := h.startWorker(c.Request.Context(), camera); err != nil {
-			log.Printf("Warning: failed to start worker for camera %s: %v", camera.Guid, err)
-		}
-	}
+	// TODO: Временно отключено - ожидается новая модель YOLOv8n
+	// if camera.IsEnabled {
+	// 	if err := h.startWorker(c.Request.Context(), camera); err != nil {
+	// 		log.Printf("Warning: failed to start worker for camera %s: %v", camera.Guid, err)
+	// 	}
+	// }
 
 	c.JSON(http.StatusCreated, camera)
 }
@@ -147,7 +148,7 @@ func (h *CameraHandler) UpdateCamera(c *gin.Context) {
 		return
 	}
 
-	wasEnabled := camera.IsEnabled
+	// wasEnabled := camera.IsEnabled
 
 	if req.Name != "" {
 		camera.Name = req.Name
@@ -184,17 +185,18 @@ func (h *CameraHandler) UpdateCamera(c *gin.Context) {
 		return
 	}
 
-	if req.IsEnabled != nil && wasEnabled != camera.IsEnabled {
-		if camera.IsEnabled {
-			if err := h.startWorker(c.Request.Context(), camera); err != nil {
-				log.Printf("Warning: failed to start worker for camera %s: %v", camera.Guid, err)
-			}
-		} else {
-			if err := h.stopWorker(c.Request.Context(), camera.Guid.String()); err != nil {
-				log.Printf("Warning: failed to stop worker for camera %s: %v", camera.Guid, err)
-			}
-		}
-	}
+	// TODO: Временно отключено - ожидается новая модель YOLOv8n
+	// if req.IsEnabled != nil && wasEnabled != camera.IsEnabled {
+	// 	if camera.IsEnabled {
+	// 		if err := h.startWorker(c.Request.Context(), camera); err != nil {
+	// 			log.Printf("Warning: failed to start worker for camera %s: %v", camera.Guid, err)
+	// 		}
+	// 	} else {
+	// 		if err := h.stopWorker(c.Request.Context(), camera.Guid.String()); err != nil {
+	// 			log.Printf("Warning: failed to stop worker for camera %s: %v", camera.Guid, err)
+	// 		}
+	// 	}
+	// }
 
 	c.JSON(http.StatusOK, camera)
 }
@@ -217,11 +219,12 @@ func (h *CameraHandler) DeleteCamera(c *gin.Context) {
 		return
 	}
 
-	if camera.IsEnabled {
-		if err := h.stopWorker(c.Request.Context(), camera.Guid.String()); err != nil {
-			log.Printf("Warning: failed to stop worker for camera %s: %v", camera.Guid, err)
-		}
-	}
+	// TODO: Временно отключено - ожидается новая модель YOLOv8n
+	// if camera.IsEnabled {
+	// 	if err := h.stopWorker(c.Request.Context(), camera.Guid.String()); err != nil {
+	// 		log.Printf("Warning: failed to stop worker for camera %s: %v", camera.Guid, err)
+	// 	}
+	// }
 
 	if err := h.camera.repo.Delete(id); err != nil {
 		exception.HttpResponseException(c, exception.InternalError("failed camera delete: "+err.Error()))

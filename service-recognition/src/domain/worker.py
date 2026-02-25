@@ -12,7 +12,7 @@ class WorkerStatus(str, Enum):
 @dataclass
 class Worker:
     camera_id: str
-    rtsp_url: str
+    stream: str
     status: WorkerStatus = WorkerStatus.STOPPED
     started_at: datetime | None = None
     error: str = ""

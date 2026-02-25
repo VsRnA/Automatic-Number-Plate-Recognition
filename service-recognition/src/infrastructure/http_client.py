@@ -10,18 +10,15 @@ logger = logging.getLogger(__name__)
 class CameraInfo:
     guid: str
     name: str
-    rtsp_url: str
+    stream: str
 
 
 class BackendHTTPClient:
-    """HTTP client for communicating with Go backend."""
-
     def __init__(self, base_url: str, timeout: float = 10.0):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
     def get_active_cameras(self) -> list[CameraInfo]:
-        """Get list of active cameras from Go backend."""
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.get(f"{self.base_url}/api/v1/cameras?isActive=true")
@@ -34,7 +31,7 @@ class BackendHTTPClient:
                         CameraInfo(
                             guid=cam["guid"],
                             name=cam["name"],
-                            rtsp_url=cam["rtspUrl"],
+                            stream=cam["rtspUrl"],
                         )
                     )
                 logger.info(f"Retrieved {len(cameras)} active cameras from backend")
