@@ -27,6 +27,8 @@ type Config struct {
 	GRPCHost string `env:"GRPC_HOST"`
 	GRPCPort string `env:"GRPC_PORT"`
 
+	HLSDir string `env:"HLS_DIR"`
+
 	S3Endpoint  string `env:"S3_ENDPOINT"`
 	S3AccessKey string `env:"S3_ACCESS_KEY"`
 	S3SecretKey string `env:"S3_SECRET_KEY"`
@@ -55,6 +57,8 @@ func LoadEnv() (*Config, error) {
 
 		GRPCHost: getEnv("GRPC_HOST", "localhost"),
 		GRPCPort: getEnv("GRPC_PORT", "50051"),
+
+		HLSDir: getEnv("HLS_DIR", "/tmp/hls"),
 
 		S3Endpoint:  getEnv("S3_ENDPOINT", ""),
 		S3AccessKey: getEnv("S3_ACCESS_KEY", ""),

@@ -1,0 +1,93 @@
+.sidebar {
+  width: 212px;
+  min-height: 100vh;
+  background-color: #fff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.logo {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.logoTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: 0.5px;
+}
+
+.logoSubtitle {
+  font-size: 9px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.nav {
+  flex: 1;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 0 8px 8px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #6b7280;
+  text-align: left;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.navItem:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.navItemActive {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.navItemActive:hover {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.navIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+}

@@ -19,15 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RecognitionService_HealthCheck_FullMethodName         = "/recognition.RecognitionService/HealthCheck"
-	RecognitionService_Ping_FullMethodName                = "/recognition.RecognitionService/Ping"
-	RecognitionService_TestRecognize_FullMethodName       = "/recognition.RecognitionService/TestRecognize"
-	RecognitionService_RecognizeFromRTSP_FullMethodName   = "/recognition.RecognitionService/RecognizeFromRTSP"
-	RecognitionService_StopRTSPRecognition_FullMethodName = "/recognition.RecognitionService/StopRTSPRecognition"
-	RecognitionService_GetRTSPStatus_FullMethodName       = "/recognition.RecognitionService/GetRTSPStatus"
-	RecognitionService_StartWorker_FullMethodName         = "/recognition.RecognitionService/StartWorker"
-	RecognitionService_StopWorker_FullMethodName          = "/recognition.RecognitionService/StopWorker"
-	RecognitionService_GetWorkerStatus_FullMethodName     = "/recognition.RecognitionService/GetWorkerStatus"
+	RecognitionService_HealthCheck_FullMethodName                = "/recognition.RecognitionService/HealthCheck"
+	RecognitionService_Ping_FullMethodName                       = "/recognition.RecognitionService/Ping"
+	RecognitionService_TestRecognize_FullMethodName              = "/recognition.RecognitionService/TestRecognize"
+	RecognitionService_RecognizeFromStream_FullMethodName        = "/recognition.RecognitionService/RecognizeFromStream"
+	RecognitionService_StopStreamRecognition_FullMethodName      = "/recognition.RecognitionService/StopStreamRecognition"
+	RecognitionService_GetStreamRecognitionStatus_FullMethodName = "/recognition.RecognitionService/GetStreamRecognitionStatus"
+	RecognitionService_StartWorker_FullMethodName                = "/recognition.RecognitionService/StartWorker"
+	RecognitionService_StopWorker_FullMethodName                 = "/recognition.RecognitionService/StopWorker"
+	RecognitionService_GetWorkerStatus_FullMethodName            = "/recognition.RecognitionService/GetWorkerStatus"
 )
 
 // RecognitionServiceClient is the client API for RecognitionService service.
@@ -41,9 +41,9 @@ type RecognitionServiceClient interface {
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 	TestRecognize(ctx context.Context, in *TestRecognizeRequest, opts ...grpc.CallOption) (*TestRecognizeResponse, error)
 	// Production methods
-	RecognizeFromRTSP(ctx context.Context, in *RTSPRequest, opts ...grpc.CallOption) (*RecognizeResponse, error)
-	StopRTSPRecognition(ctx context.Context, in *StopRTSPRequest, opts ...grpc.CallOption) (*StopRTSPResponse, error)
-	GetRTSPStatus(ctx context.Context, in *RTSPStatusRequest, opts ...grpc.CallOption) (*RTSPStatusResponse, error)
+	RecognizeFromStream(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (*RecognizeResponse, error)
+	StopStreamRecognition(ctx context.Context, in *StopStreamRecognitionRequest, opts ...grpc.CallOption) (*StopStreamRecognitionResponse, error)
+	GetStreamRecognitionStatus(ctx context.Context, in *StreamRecognitionStatusRequest, opts ...grpc.CallOption) (*StreamRecognitionStatusResponse, error)
 	// Worker management
 	StartWorker(ctx context.Context, in *StartWorkerRequest, opts ...grpc.CallOption) (*StartWorkerResponse, error)
 	StopWorker(ctx context.Context, in *StopWorkerRequest, opts ...grpc.CallOption) (*StopWorkerResponse, error)
@@ -88,30 +88,30 @@ func (c *recognitionServiceClient) TestRecognize(ctx context.Context, in *TestRe
 	return out, nil
 }
 
-func (c *recognitionServiceClient) RecognizeFromRTSP(ctx context.Context, in *RTSPRequest, opts ...grpc.CallOption) (*RecognizeResponse, error) {
+func (c *recognitionServiceClient) RecognizeFromStream(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (*RecognizeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RecognizeResponse)
-	err := c.cc.Invoke(ctx, RecognitionService_RecognizeFromRTSP_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RecognitionService_RecognizeFromStream_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *recognitionServiceClient) StopRTSPRecognition(ctx context.Context, in *StopRTSPRequest, opts ...grpc.CallOption) (*StopRTSPResponse, error) {
+func (c *recognitionServiceClient) StopStreamRecognition(ctx context.Context, in *StopStreamRecognitionRequest, opts ...grpc.CallOption) (*StopStreamRecognitionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StopRTSPResponse)
-	err := c.cc.Invoke(ctx, RecognitionService_StopRTSPRecognition_FullMethodName, in, out, cOpts...)
+	out := new(StopStreamRecognitionResponse)
+	err := c.cc.Invoke(ctx, RecognitionService_StopStreamRecognition_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *recognitionServiceClient) GetRTSPStatus(ctx context.Context, in *RTSPStatusRequest, opts ...grpc.CallOption) (*RTSPStatusResponse, error) {
+func (c *recognitionServiceClient) GetStreamRecognitionStatus(ctx context.Context, in *StreamRecognitionStatusRequest, opts ...grpc.CallOption) (*StreamRecognitionStatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RTSPStatusResponse)
-	err := c.cc.Invoke(ctx, RecognitionService_GetRTSPStatus_FullMethodName, in, out, cOpts...)
+	out := new(StreamRecognitionStatusResponse)
+	err := c.cc.Invoke(ctx, RecognitionService_GetStreamRecognitionStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +159,9 @@ type RecognitionServiceServer interface {
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	TestRecognize(context.Context, *TestRecognizeRequest) (*TestRecognizeResponse, error)
 	// Production methods
-	RecognizeFromRTSP(context.Context, *RTSPRequest) (*RecognizeResponse, error)
-	StopRTSPRecognition(context.Context, *StopRTSPRequest) (*StopRTSPResponse, error)
-	GetRTSPStatus(context.Context, *RTSPStatusRequest) (*RTSPStatusResponse, error)
+	RecognizeFromStream(context.Context, *StreamRequest) (*RecognizeResponse, error)
+	StopStreamRecognition(context.Context, *StopStreamRecognitionRequest) (*StopStreamRecognitionResponse, error)
+	GetStreamRecognitionStatus(context.Context, *StreamRecognitionStatusRequest) (*StreamRecognitionStatusResponse, error)
 	// Worker management
 	StartWorker(context.Context, *StartWorkerRequest) (*StartWorkerResponse, error)
 	StopWorker(context.Context, *StopWorkerRequest) (*StopWorkerResponse, error)
@@ -185,14 +185,14 @@ func (UnimplementedRecognitionServiceServer) Ping(context.Context, *PingRequest)
 func (UnimplementedRecognitionServiceServer) TestRecognize(context.Context, *TestRecognizeRequest) (*TestRecognizeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestRecognize not implemented")
 }
-func (UnimplementedRecognitionServiceServer) RecognizeFromRTSP(context.Context, *RTSPRequest) (*RecognizeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RecognizeFromRTSP not implemented")
+func (UnimplementedRecognitionServiceServer) RecognizeFromStream(context.Context, *StreamRequest) (*RecognizeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecognizeFromStream not implemented")
 }
-func (UnimplementedRecognitionServiceServer) StopRTSPRecognition(context.Context, *StopRTSPRequest) (*StopRTSPResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method StopRTSPRecognition not implemented")
+func (UnimplementedRecognitionServiceServer) StopStreamRecognition(context.Context, *StopStreamRecognitionRequest) (*StopStreamRecognitionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StopStreamRecognition not implemented")
 }
-func (UnimplementedRecognitionServiceServer) GetRTSPStatus(context.Context, *RTSPStatusRequest) (*RTSPStatusResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetRTSPStatus not implemented")
+func (UnimplementedRecognitionServiceServer) GetStreamRecognitionStatus(context.Context, *StreamRecognitionStatusRequest) (*StreamRecognitionStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetStreamRecognitionStatus not implemented")
 }
 func (UnimplementedRecognitionServiceServer) StartWorker(context.Context, *StartWorkerRequest) (*StartWorkerResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartWorker not implemented")
@@ -278,56 +278,56 @@ func _RecognitionService_TestRecognize_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RecognitionService_RecognizeFromRTSP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RTSPRequest)
+func _RecognitionService_RecognizeFromStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StreamRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecognitionServiceServer).RecognizeFromRTSP(ctx, in)
+		return srv.(RecognitionServiceServer).RecognizeFromStream(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecognitionService_RecognizeFromRTSP_FullMethodName,
+		FullMethod: RecognitionService_RecognizeFromStream_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecognitionServiceServer).RecognizeFromRTSP(ctx, req.(*RTSPRequest))
+		return srv.(RecognitionServiceServer).RecognizeFromStream(ctx, req.(*StreamRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RecognitionService_StopRTSPRecognition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StopRTSPRequest)
+func _RecognitionService_StopStreamRecognition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopStreamRecognitionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecognitionServiceServer).StopRTSPRecognition(ctx, in)
+		return srv.(RecognitionServiceServer).StopStreamRecognition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecognitionService_StopRTSPRecognition_FullMethodName,
+		FullMethod: RecognitionService_StopStreamRecognition_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecognitionServiceServer).StopRTSPRecognition(ctx, req.(*StopRTSPRequest))
+		return srv.(RecognitionServiceServer).StopStreamRecognition(ctx, req.(*StopStreamRecognitionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RecognitionService_GetRTSPStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RTSPStatusRequest)
+func _RecognitionService_GetStreamRecognitionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StreamRecognitionStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RecognitionServiceServer).GetRTSPStatus(ctx, in)
+		return srv.(RecognitionServiceServer).GetStreamRecognitionStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RecognitionService_GetRTSPStatus_FullMethodName,
+		FullMethod: RecognitionService_GetStreamRecognitionStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RecognitionServiceServer).GetRTSPStatus(ctx, req.(*RTSPStatusRequest))
+		return srv.(RecognitionServiceServer).GetStreamRecognitionStatus(ctx, req.(*StreamRecognitionStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -406,16 +406,16 @@ var RecognitionService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RecognitionService_TestRecognize_Handler,
 		},
 		{
-			MethodName: "RecognizeFromRTSP",
-			Handler:    _RecognitionService_RecognizeFromRTSP_Handler,
+			MethodName: "RecognizeFromStream",
+			Handler:    _RecognitionService_RecognizeFromStream_Handler,
 		},
 		{
-			MethodName: "StopRTSPRecognition",
-			Handler:    _RecognitionService_StopRTSPRecognition_Handler,
+			MethodName: "StopStreamRecognition",
+			Handler:    _RecognitionService_StopStreamRecognition_Handler,
 		},
 		{
-			MethodName: "GetRTSPStatus",
-			Handler:    _RecognitionService_GetRTSPStatus_Handler,
+			MethodName: "GetStreamRecognitionStatus",
+			Handler:    _RecognitionService_GetStreamRecognitionStatus_Handler,
 		},
 		{
 			MethodName: "StartWorker",

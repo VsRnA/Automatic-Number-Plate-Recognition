@@ -47,8 +47,14 @@ func (a *App) Run() error {
 		log.Printf("Connected to recognition service at %s:%s", cfg.GRPCHost, cfg.GRPCPort)
 	}
 
+	redisClient := infrastructure.NewRedisClient(cfg.RedisHost, cfg.RedisPort)
+	log.Printf("Redis client initialized at %s:%s", cfg.RedisHost, cfg.RedisPort)
+
+	ffmpegManager := infrastructure.NewFFmpegManager(cfg.HLSDir)
+	log.Printf("FFmpeg manager initialized, HLS dir: %s", cfg.HLSDir)
+
 	repositories := repository.NewRepository(db)
-	handlers := handler.NewHandler(*cfg, repositories, recognitionClient)
+	handlers := handler.NewHandler(*cfg, repositories, recognitionClient, redisClient, ffmpegManager)
 
 	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
 
@@ -77,6 +83,12 @@ func (a *App) Run() error {
 	if recognitionClient != nil {
 		recognitionClient.Close()
 	}
+
+	if err := redisClient.Close(); err != nil {
+		log.Printf("Error closing Redis client: %v", err)
+	}
+
+	ffmpegManager.StopAll()
 
 	log.Println("Server stopped")
 	return nil

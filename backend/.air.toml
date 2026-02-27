@@ -1,9 +1,9 @@
 root = "."
-tmp_dir = "tmp"
+tmp_dir = "/tmp/air"
 
 [build]
-  bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./cmd/app"
+  bin = "/tmp/air/main"
+  cmd = "go build -o /tmp/air/main ./cmd/app"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "node_modules"]
   exclude_file = []

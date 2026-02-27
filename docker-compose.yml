@@ -1,10 +1,10 @@
 services:
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     volumes:
-      - .:/app
+      - ./backend:/app
     ports:
       - "8080:8080"
     depends_on:
@@ -52,12 +52,12 @@ services:
 
   # service-recognition:
   #   build:
-  #     context: ../service-recognition
+  #     context: ./service-recognition
   #     dockerfile: Dockerfile
   #   ports:
   #     - "50051:50051"
   #   volumes:
-  #     - ../service-recognition/src:/app/src
+  #     - ./service-recognition/src:/app/src
   #   depends_on:
   #     - redis
   #   environment:
@@ -79,10 +79,10 @@ services:
 
   frontend:
     build:
-      context: ../frontend
+      context: ./frontend
       dockerfile: Dockerfile.dev
     volumes:
-      - ../frontend:/app
+      - ./frontend:/app
       - /app/node_modules
     ports:
       - "5173:5173"
