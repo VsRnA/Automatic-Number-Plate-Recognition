@@ -2,29 +2,29 @@ import logging
 import threading
 from datetime import datetime
 
-from src.config import settings
-from src.domain.worker import Worker, WorkerStatus
-from src.infrastructure.redis_producer import RedisProducer
-from src.service.recognition_service import RecognitionService
-from src.worker.worker_thread import WorkerThread
+from internal.config.config import Settings
+from internal.model.worker import Worker, WorkerStatus
+from internal.service.recognition_service import RecognitionService
+from internal.service.worker_thread import WorkerThread
+from infrastructure.storage.redis_producer import RedisProducer
 
 logger = logging.getLogger(__name__)
 
 
 class WorkerManager:
-    def __init__(self):
+    def __init__(
+        self,
+        recognition_service: RecognitionService,
+        redis_producer: RedisProducer,
+        settings: Settings,
+    ):
         self._workers: dict[str, Worker] = {}
         self._threads: dict[str, WorkerThread] = {}
         self._lock = threading.Lock()
 
-        self._recognition_service = RecognitionService()
-        self._redis_producer = RedisProducer(
-            redis_host=settings.redis_host,
-            redis_port=settings.redis_port,
-            stream_name=settings.redis_stream,
-        )
-
-        logger.info("WorkerManager initialized with shared services")
+        self._recognition_service = recognition_service
+        self._redis_producer = redis_producer
+        self._settings = settings
 
     def start_worker(self, camera_id: str, stream: str) -> tuple[bool, str]:
         with self._lock:
@@ -45,18 +45,15 @@ class WorkerManager:
                 worker=worker,
                 recognition_service=self._recognition_service,
                 redis_producer=self._redis_producer,
-                frame_interval=settings.frame_interval,
-                confidence_threshold=settings.confidence_threshold,
-                reconnect_delay=settings.worker_reconnect_delay,
-                max_retries=settings.worker_max_retries,
+                frame_interval=self._settings.frame_interval,
+                confidence_threshold=self._settings.confidence_threshold,
+                reconnect_delay=self._settings.worker_reconnect_delay,
+                max_retries=self._settings.worker_max_retries,
             )
             self._threads[camera_id] = thread
             thread.start()
 
-            logger.info(
-                f"Started worker for camera {camera_id} with RTSP URL: {stream}"
-            )
-
+            logger.info(f"Started worker for camera {camera_id}: {stream}")
             return True, f"Worker started for camera {camera_id}"
 
     def stop_worker(self, camera_id: str) -> tuple[bool, str]:
@@ -74,9 +71,9 @@ class WorkerManager:
                 del self._threads[camera_id]
 
             worker.status = WorkerStatus.STOPPED
-            logger.info(f"Stopped worker for camera {camera_id}")
             del self._workers[camera_id]
 
+            logger.info(f"Stopped worker for camera {camera_id}")
             return True, f"Worker stopped for camera {camera_id}"
 
     def get_worker_status(self, camera_id: str) -> Worker | None:
@@ -86,6 +83,3 @@ class WorkerManager:
     def list_workers(self) -> list[Worker]:
         with self._lock:
             return list(self._workers.values())
-
-
-worker_manager = WorkerManager()

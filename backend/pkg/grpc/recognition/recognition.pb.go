@@ -1172,6 +1172,197 @@ func (x *GetWorkerStatusResponse) GetError() string {
 	return ""
 }
 
+// TestVideoRequest accepts raw video bytes for test recognition
+type TestVideoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	VideoData     []byte                 `protobuf:"bytes,1,opt,name=video_data,json=videoData,proto3" json:"video_data,omitempty"`
+	FrameInterval int32                  `protobuf:"varint,2,opt,name=frame_interval,json=frameInterval,proto3" json:"frame_interval,omitempty"` // process every Nth frame (0 = use service default)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestVideoRequest) Reset() {
+	*x = TestVideoRequest{}
+	mi := &file_recognition_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestVideoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestVideoRequest) ProtoMessage() {}
+
+func (x *TestVideoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestVideoRequest.ProtoReflect.Descriptor instead.
+func (*TestVideoRequest) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *TestVideoRequest) GetVideoData() []byte {
+	if x != nil {
+		return x.VideoData
+	}
+	return nil
+}
+
+func (x *TestVideoRequest) GetFrameInterval() int32 {
+	if x != nil {
+		return x.FrameInterval
+	}
+	return 0
+}
+
+// TestVideoResponse returns all plates found in the video
+type TestVideoResponse struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Success              bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Detections           []*VideoPlateDetection `protobuf:"bytes,2,rep,name=detections,proto3" json:"detections,omitempty"`
+	TotalFramesProcessed int32                  `protobuf:"varint,3,opt,name=total_frames_processed,json=totalFramesProcessed,proto3" json:"total_frames_processed,omitempty"`
+	Error                string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *TestVideoResponse) Reset() {
+	*x = TestVideoResponse{}
+	mi := &file_recognition_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestVideoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestVideoResponse) ProtoMessage() {}
+
+func (x *TestVideoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestVideoResponse.ProtoReflect.Descriptor instead.
+func (*TestVideoResponse) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *TestVideoResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *TestVideoResponse) GetDetections() []*VideoPlateDetection {
+	if x != nil {
+		return x.Detections
+	}
+	return nil
+}
+
+func (x *TestVideoResponse) GetTotalFramesProcessed() int32 {
+	if x != nil {
+		return x.TotalFramesProcessed
+	}
+	return 0
+}
+
+func (x *TestVideoResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// VideoPlateDetection represents a plate found in a specific video frame
+type VideoPlateDetection struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PlateNumber   string                 `protobuf:"bytes,1,opt,name=plate_number,json=plateNumber,proto3" json:"plate_number,omitempty"`
+	Confidence    float64                `protobuf:"fixed64,2,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	ScreenshotUrl string                 `protobuf:"bytes,3,opt,name=screenshot_url,json=screenshotUrl,proto3" json:"screenshot_url,omitempty"`
+	FrameNumber   int32                  `protobuf:"varint,4,opt,name=frame_number,json=frameNumber,proto3" json:"frame_number,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VideoPlateDetection) Reset() {
+	*x = VideoPlateDetection{}
+	mi := &file_recognition_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VideoPlateDetection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VideoPlateDetection) ProtoMessage() {}
+
+func (x *VideoPlateDetection) ProtoReflect() protoreflect.Message {
+	mi := &file_recognition_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VideoPlateDetection.ProtoReflect.Descriptor instead.
+func (*VideoPlateDetection) Descriptor() ([]byte, []int) {
+	return file_recognition_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *VideoPlateDetection) GetPlateNumber() string {
+	if x != nil {
+		return x.PlateNumber
+	}
+	return ""
+}
+
+func (x *VideoPlateDetection) GetConfidence() float64 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
+}
+
+func (x *VideoPlateDetection) GetScreenshotUrl() string {
+	if x != nil {
+		return x.ScreenshotUrl
+	}
+	return ""
+}
+
+func (x *VideoPlateDetection) GetFrameNumber() int32 {
+	if x != nil {
+		return x.FrameNumber
+	}
+	return 0
+}
+
 // DetectionEvent describes a plate detection (used in Redis Streams and SSE)
 type DetectionEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1186,7 +1377,7 @@ type DetectionEvent struct {
 
 func (x *DetectionEvent) Reset() {
 	*x = DetectionEvent{}
-	mi := &file_recognition_proto_msgTypes[20]
+	mi := &file_recognition_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1198,7 +1389,7 @@ func (x *DetectionEvent) String() string {
 func (*DetectionEvent) ProtoMessage() {}
 
 func (x *DetectionEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_recognition_proto_msgTypes[20]
+	mi := &file_recognition_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1211,7 +1402,7 @@ func (x *DetectionEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DetectionEvent.ProtoReflect.Descriptor instead.
 func (*DetectionEvent) Descriptor() ([]byte, []int) {
-	return file_recognition_proto_rawDescGZIP(), []int{20}
+	return file_recognition_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DetectionEvent) GetCameraId() string {
@@ -1334,7 +1525,25 @@ const file_recognition_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1d\n" +
 	"\n" +
 	"started_at\x18\x03 \x01(\tR\tstartedAt\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"\xcb\x01\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"X\n" +
+	"\x10TestVideoRequest\x12\x1d\n" +
+	"\n" +
+	"video_data\x18\x01 \x01(\fR\tvideoData\x12%\n" +
+	"\x0eframe_interval\x18\x02 \x01(\x05R\rframeInterval\"\xbb\x01\n" +
+	"\x11TestVideoResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12@\n" +
+	"\n" +
+	"detections\x18\x02 \x03(\v2 .recognition.VideoPlateDetectionR\n" +
+	"detections\x124\n" +
+	"\x16total_frames_processed\x18\x03 \x01(\x05R\x14totalFramesProcessed\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\xa2\x01\n" +
+	"\x13VideoPlateDetection\x12!\n" +
+	"\fplate_number\x18\x01 \x01(\tR\vplateNumber\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\x02 \x01(\x01R\n" +
+	"confidence\x12%\n" +
+	"\x0escreenshot_url\x18\x03 \x01(\tR\rscreenshotUrl\x12!\n" +
+	"\fframe_number\x18\x04 \x01(\x05R\vframeNumber\"\xcb\x01\n" +
 	"\x0eDetectionEvent\x12\x1b\n" +
 	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\x12!\n" +
 	"\fplate_number\x18\x02 \x01(\tR\vplateNumber\x12\x1e\n" +
@@ -1342,11 +1551,12 @@ const file_recognition_proto_rawDesc = "" +
 	"confidence\x18\x03 \x01(\x01R\n" +
 	"confidence\x12;\n" +
 	"\fbounding_box\x18\x04 \x01(\v2\x18.recognition.BoundingBoxR\vboundingBox\x12\x1c\n" +
-	"\ttimestamp\x18\x05 \x01(\tR\ttimestamp2\xa4\x06\n" +
+	"\ttimestamp\x18\x05 \x01(\tR\ttimestamp2\xf9\x06\n" +
 	"\x12RecognitionService\x12>\n" +
 	"\vHealthCheck\x12\x12.recognition.Empty\x1a\x1b.recognition.HealthResponse\x12;\n" +
 	"\x04Ping\x12\x18.recognition.PingRequest\x1a\x19.recognition.PingResponse\x12V\n" +
-	"\rTestRecognize\x12!.recognition.TestRecognizeRequest\x1a\".recognition.TestRecognizeResponse\x12Q\n" +
+	"\rTestRecognize\x12!.recognition.TestRecognizeRequest\x1a\".recognition.TestRecognizeResponse\x12S\n" +
+	"\x12TestRecognizeVideo\x12\x1d.recognition.TestVideoRequest\x1a\x1e.recognition.TestVideoResponse\x12Q\n" +
 	"\x13RecognizeFromStream\x12\x1a.recognition.StreamRequest\x1a\x1e.recognition.RecognizeResponse\x12n\n" +
 	"\x15StopStreamRecognition\x12).recognition.StopStreamRecognitionRequest\x1a*.recognition.StopStreamRecognitionResponse\x12w\n" +
 	"\x1aGetStreamRecognitionStatus\x12+.recognition.StreamRecognitionStatusRequest\x1a,.recognition.StreamRecognitionStatusResponse\x12P\n" +
@@ -1367,7 +1577,7 @@ func file_recognition_proto_rawDescGZIP() []byte {
 	return file_recognition_proto_rawDescData
 }
 
-var file_recognition_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_recognition_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_recognition_proto_goTypes = []any{
 	(*Empty)(nil),                           // 0: recognition.Empty
 	(*HealthResponse)(nil),                  // 1: recognition.HealthResponse
@@ -1389,35 +1599,41 @@ var file_recognition_proto_goTypes = []any{
 	(*StopWorkerResponse)(nil),              // 17: recognition.StopWorkerResponse
 	(*GetWorkerStatusRequest)(nil),          // 18: recognition.GetWorkerStatusRequest
 	(*GetWorkerStatusResponse)(nil),         // 19: recognition.GetWorkerStatusResponse
-	(*DetectionEvent)(nil),                  // 20: recognition.DetectionEvent
+	(*TestVideoRequest)(nil),                // 20: recognition.TestVideoRequest
+	(*TestVideoResponse)(nil),               // 21: recognition.TestVideoResponse
+	(*VideoPlateDetection)(nil),             // 22: recognition.VideoPlateDetection
+	(*DetectionEvent)(nil),                  // 23: recognition.DetectionEvent
 }
 var file_recognition_proto_depIdxs = []int32{
 	6,  // 0: recognition.TestRecognizeResponse.plates:type_name -> recognition.PlateResult
 	7,  // 1: recognition.PlateResult.bounding_box:type_name -> recognition.BoundingBox
-	7,  // 2: recognition.DetectionEvent.bounding_box:type_name -> recognition.BoundingBox
-	0,  // 3: recognition.RecognitionService.HealthCheck:input_type -> recognition.Empty
-	2,  // 4: recognition.RecognitionService.Ping:input_type -> recognition.PingRequest
-	4,  // 5: recognition.RecognitionService.TestRecognize:input_type -> recognition.TestRecognizeRequest
-	8,  // 6: recognition.RecognitionService.RecognizeFromStream:input_type -> recognition.StreamRequest
-	10, // 7: recognition.RecognitionService.StopStreamRecognition:input_type -> recognition.StopStreamRecognitionRequest
-	12, // 8: recognition.RecognitionService.GetStreamRecognitionStatus:input_type -> recognition.StreamRecognitionStatusRequest
-	14, // 9: recognition.RecognitionService.StartWorker:input_type -> recognition.StartWorkerRequest
-	16, // 10: recognition.RecognitionService.StopWorker:input_type -> recognition.StopWorkerRequest
-	18, // 11: recognition.RecognitionService.GetWorkerStatus:input_type -> recognition.GetWorkerStatusRequest
-	1,  // 12: recognition.RecognitionService.HealthCheck:output_type -> recognition.HealthResponse
-	3,  // 13: recognition.RecognitionService.Ping:output_type -> recognition.PingResponse
-	5,  // 14: recognition.RecognitionService.TestRecognize:output_type -> recognition.TestRecognizeResponse
-	9,  // 15: recognition.RecognitionService.RecognizeFromStream:output_type -> recognition.RecognizeResponse
-	11, // 16: recognition.RecognitionService.StopStreamRecognition:output_type -> recognition.StopStreamRecognitionResponse
-	13, // 17: recognition.RecognitionService.GetStreamRecognitionStatus:output_type -> recognition.StreamRecognitionStatusResponse
-	15, // 18: recognition.RecognitionService.StartWorker:output_type -> recognition.StartWorkerResponse
-	17, // 19: recognition.RecognitionService.StopWorker:output_type -> recognition.StopWorkerResponse
-	19, // 20: recognition.RecognitionService.GetWorkerStatus:output_type -> recognition.GetWorkerStatusResponse
-	12, // [12:21] is the sub-list for method output_type
-	3,  // [3:12] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	22, // 2: recognition.TestVideoResponse.detections:type_name -> recognition.VideoPlateDetection
+	7,  // 3: recognition.DetectionEvent.bounding_box:type_name -> recognition.BoundingBox
+	0,  // 4: recognition.RecognitionService.HealthCheck:input_type -> recognition.Empty
+	2,  // 5: recognition.RecognitionService.Ping:input_type -> recognition.PingRequest
+	4,  // 6: recognition.RecognitionService.TestRecognize:input_type -> recognition.TestRecognizeRequest
+	20, // 7: recognition.RecognitionService.TestRecognizeVideo:input_type -> recognition.TestVideoRequest
+	8,  // 8: recognition.RecognitionService.RecognizeFromStream:input_type -> recognition.StreamRequest
+	10, // 9: recognition.RecognitionService.StopStreamRecognition:input_type -> recognition.StopStreamRecognitionRequest
+	12, // 10: recognition.RecognitionService.GetStreamRecognitionStatus:input_type -> recognition.StreamRecognitionStatusRequest
+	14, // 11: recognition.RecognitionService.StartWorker:input_type -> recognition.StartWorkerRequest
+	16, // 12: recognition.RecognitionService.StopWorker:input_type -> recognition.StopWorkerRequest
+	18, // 13: recognition.RecognitionService.GetWorkerStatus:input_type -> recognition.GetWorkerStatusRequest
+	1,  // 14: recognition.RecognitionService.HealthCheck:output_type -> recognition.HealthResponse
+	3,  // 15: recognition.RecognitionService.Ping:output_type -> recognition.PingResponse
+	5,  // 16: recognition.RecognitionService.TestRecognize:output_type -> recognition.TestRecognizeResponse
+	21, // 17: recognition.RecognitionService.TestRecognizeVideo:output_type -> recognition.TestVideoResponse
+	9,  // 18: recognition.RecognitionService.RecognizeFromStream:output_type -> recognition.RecognizeResponse
+	11, // 19: recognition.RecognitionService.StopStreamRecognition:output_type -> recognition.StopStreamRecognitionResponse
+	13, // 20: recognition.RecognitionService.GetStreamRecognitionStatus:output_type -> recognition.StreamRecognitionStatusResponse
+	15, // 21: recognition.RecognitionService.StartWorker:output_type -> recognition.StartWorkerResponse
+	17, // 22: recognition.RecognitionService.StopWorker:output_type -> recognition.StopWorkerResponse
+	19, // 23: recognition.RecognitionService.GetWorkerStatus:output_type -> recognition.GetWorkerStatusResponse
+	14, // [14:24] is the sub-list for method output_type
+	4,  // [4:14] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_recognition_proto_init() }
@@ -1431,7 +1647,7 @@ func file_recognition_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_recognition_proto_rawDesc), len(file_recognition_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

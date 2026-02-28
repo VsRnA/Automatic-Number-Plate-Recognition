@@ -17,7 +17,15 @@ type RecognitionClient struct {
 func NewRecognitionClient(host, port string) (*RecognitionClient, error) {
 	addr := fmt.Sprintf("%s:%s", host, port)
 
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		// Увеличиваем лимит для передачи видеофайлов (256 MB)
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallSendMsgSize(256*1024*1024),
+			grpc.MaxCallRecvMsgSize(256*1024*1024),
+		),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to recognition service: %w", err)
 	}
@@ -49,6 +57,13 @@ func (c *RecognitionClient) TestRecognize(ctx context.Context, imageBase64 strin
 	return c.client.TestRecognize(ctx, &pb.TestRecognizeRequest{
 		ImageBase64:    imageBase64,
 		UseSampleImage: useSampleImage,
+	})
+}
+
+func (c *RecognitionClient) TestRecognizeVideo(ctx context.Context, videoData []byte, frameInterval int32) (*pb.TestVideoResponse, error) {
+	return c.client.TestRecognizeVideo(ctx, &pb.TestVideoRequest{
+		VideoData:     videoData,
+		FrameInterval: frameInterval,
 	})
 }
 

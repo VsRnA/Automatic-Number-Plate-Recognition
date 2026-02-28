@@ -22,6 +22,7 @@ const (
 	RecognitionService_HealthCheck_FullMethodName                = "/recognition.RecognitionService/HealthCheck"
 	RecognitionService_Ping_FullMethodName                       = "/recognition.RecognitionService/Ping"
 	RecognitionService_TestRecognize_FullMethodName              = "/recognition.RecognitionService/TestRecognize"
+	RecognitionService_TestRecognizeVideo_FullMethodName         = "/recognition.RecognitionService/TestRecognizeVideo"
 	RecognitionService_RecognizeFromStream_FullMethodName        = "/recognition.RecognitionService/RecognizeFromStream"
 	RecognitionService_StopStreamRecognition_FullMethodName      = "/recognition.RecognitionService/StopStreamRecognition"
 	RecognitionService_GetStreamRecognitionStatus_FullMethodName = "/recognition.RecognitionService/GetStreamRecognitionStatus"
@@ -40,6 +41,7 @@ type RecognitionServiceClient interface {
 	HealthCheck(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 	TestRecognize(ctx context.Context, in *TestRecognizeRequest, opts ...grpc.CallOption) (*TestRecognizeResponse, error)
+	TestRecognizeVideo(ctx context.Context, in *TestVideoRequest, opts ...grpc.CallOption) (*TestVideoResponse, error)
 	// Production methods
 	RecognizeFromStream(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (*RecognizeResponse, error)
 	StopStreamRecognition(ctx context.Context, in *StopStreamRecognitionRequest, opts ...grpc.CallOption) (*StopStreamRecognitionResponse, error)
@@ -82,6 +84,16 @@ func (c *recognitionServiceClient) TestRecognize(ctx context.Context, in *TestRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TestRecognizeResponse)
 	err := c.cc.Invoke(ctx, RecognitionService_TestRecognize_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recognitionServiceClient) TestRecognizeVideo(ctx context.Context, in *TestVideoRequest, opts ...grpc.CallOption) (*TestVideoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestVideoResponse)
+	err := c.cc.Invoke(ctx, RecognitionService_TestRecognizeVideo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +170,7 @@ type RecognitionServiceServer interface {
 	HealthCheck(context.Context, *Empty) (*HealthResponse, error)
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	TestRecognize(context.Context, *TestRecognizeRequest) (*TestRecognizeResponse, error)
+	TestRecognizeVideo(context.Context, *TestVideoRequest) (*TestVideoResponse, error)
 	// Production methods
 	RecognizeFromStream(context.Context, *StreamRequest) (*RecognizeResponse, error)
 	StopStreamRecognition(context.Context, *StopStreamRecognitionRequest) (*StopStreamRecognitionResponse, error)
@@ -184,6 +197,9 @@ func (UnimplementedRecognitionServiceServer) Ping(context.Context, *PingRequest)
 }
 func (UnimplementedRecognitionServiceServer) TestRecognize(context.Context, *TestRecognizeRequest) (*TestRecognizeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestRecognize not implemented")
+}
+func (UnimplementedRecognitionServiceServer) TestRecognizeVideo(context.Context, *TestVideoRequest) (*TestVideoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestRecognizeVideo not implemented")
 }
 func (UnimplementedRecognitionServiceServer) RecognizeFromStream(context.Context, *StreamRequest) (*RecognizeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RecognizeFromStream not implemented")
@@ -274,6 +290,24 @@ func _RecognitionService_TestRecognize_Handler(srv interface{}, ctx context.Cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RecognitionServiceServer).TestRecognize(ctx, req.(*TestRecognizeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecognitionService_TestRecognizeVideo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestVideoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecognitionServiceServer).TestRecognizeVideo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecognitionService_TestRecognizeVideo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecognitionServiceServer).TestRecognizeVideo(ctx, req.(*TestVideoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -404,6 +438,10 @@ var RecognitionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TestRecognize",
 			Handler:    _RecognitionService_TestRecognize_Handler,
+		},
+		{
+			MethodName: "TestRecognizeVideo",
+			Handler:    _RecognitionService_TestRecognizeVideo_Handler,
 		},
 		{
 			MethodName: "RecognizeFromStream",
