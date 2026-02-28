@@ -3,8 +3,7 @@ CLAUDE.md
 CLAUDE*.md
 
 #ML models
-/service-recognition/crnn_number_detector_weights
-/service-recognition/yolov8n_plate_detector
+/service-recognition/models
 
 #Video
 /video
