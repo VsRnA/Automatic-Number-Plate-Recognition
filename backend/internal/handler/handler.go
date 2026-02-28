@@ -11,20 +11,22 @@ import (
 )
 
 type Handler struct {
-	Plate       IPlateHandler
-	Camera      ICameraHandler
-	Recognition IRecognitionHandler
-	Stream      IStreamHandler
-	cfg         config.Config
+	Plate           IPlateHandler
+	Camera          ICameraHandler
+	Recognition     IRecognitionHandler
+	TestRecognition ITestRecognitionHandler
+	Stream          IStreamHandler
+	cfg             config.Config
 }
 
 func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient, redisClient *redis.Client, ffmpegManager *infrastructure.FFmpegManager) *Handler {
 	validate := validator.New()
 
 	return &Handler{
-		Plate:       NewPlateHandler(repo.Plate, validate),
-		Camera:      NewCameraHandler(repo.Camera, recognitionClient, validate),
-		Recognition: NewRecognitionHandler(recognitionClient),
+		Plate:           NewPlateHandler(repo.Plate, validate),
+		Camera:          NewCameraHandler(repo.Camera, recognitionClient, validate),
+		Recognition:     NewRecognitionHandler(recognitionClient),
+		TestRecognition: NewTestRecognitionHandler(recognitionClient),
 		Stream: NewStreamHandler(
 			repo.Camera,
 			ffmpegManager,
@@ -71,6 +73,11 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			recognition.GET("/health", h.Recognition.HealthCheck)
 			recognition.POST("/ping", h.Recognition.Ping)
 			recognition.POST("/test", h.Recognition.TestRecognize)
+		}
+
+		test := api.Group("/test")
+		{
+			test.POST("/recognize-video", h.TestRecognition.RecognizeVideo)
 		}
 	}
 

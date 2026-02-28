@@ -18,7 +18,12 @@ class PlateResult:
 
 @dataclass
 class RecognitionResult:
-    success: bool
     plates: list[PlateResult]
     processing_time_ms: str
-    error: str = ""
+
+
+@dataclass
+class VideoFrameResult:
+    frame_number: int
+    plates: list[PlateResult]
+    screenshot_url: str | None

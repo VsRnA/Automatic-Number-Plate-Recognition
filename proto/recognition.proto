@@ -10,6 +10,7 @@ service RecognitionService {
   rpc HealthCheck(Empty) returns (HealthResponse);
   rpc Ping(PingRequest) returns (PingResponse);
   rpc TestRecognize(TestRecognizeRequest) returns (TestRecognizeResponse);
+  rpc TestRecognizeVideo(TestVideoRequest) returns (TestVideoResponse);
 
   // Production methods
   rpc RecognizeFromStream(StreamRequest) returns (RecognizeResponse);
@@ -147,6 +148,28 @@ message GetWorkerStatusResponse {
   string status = 2;  // "running", "stopped", "error"
   string started_at = 3;
   string error = 4;
+}
+
+// TestVideoRequest accepts raw video bytes for test recognition
+message TestVideoRequest {
+  bytes video_data = 1;
+  int32 frame_interval = 2;  // process every Nth frame (0 = use service default)
+}
+
+// TestVideoResponse returns all plates found in the video
+message TestVideoResponse {
+  bool success = 1;
+  repeated VideoPlateDetection detections = 2;
+  int32 total_frames_processed = 3;
+  string error = 4;
+}
+
+// VideoPlateDetection represents a plate found in a specific video frame
+message VideoPlateDetection {
+  string plate_number = 1;
+  double confidence = 2;
+  string screenshot_url = 3;
+  int32 frame_number = 4;
 }
 
 // DetectionEvent describes a plate detection (used in Redis Streams and SSE)

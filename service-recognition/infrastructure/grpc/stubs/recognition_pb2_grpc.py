@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import recognition_pb2 as recognition__pb2
+from infrastructure.grpc.stubs import recognition_pb2 as recognition__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
@@ -50,20 +50,25 @@ class RecognitionServiceStub(object):
                 request_serializer=recognition__pb2.TestRecognizeRequest.SerializeToString,
                 response_deserializer=recognition__pb2.TestRecognizeResponse.FromString,
                 _registered_method=True)
-        self.RecognizeFromRTSP = channel.unary_unary(
-                '/recognition.RecognitionService/RecognizeFromRTSP',
-                request_serializer=recognition__pb2.RTSPRequest.SerializeToString,
+        self.TestRecognizeVideo = channel.unary_unary(
+                '/recognition.RecognitionService/TestRecognizeVideo',
+                request_serializer=recognition__pb2.TestVideoRequest.SerializeToString,
+                response_deserializer=recognition__pb2.TestVideoResponse.FromString,
+                _registered_method=True)
+        self.RecognizeFromStream = channel.unary_unary(
+                '/recognition.RecognitionService/RecognizeFromStream',
+                request_serializer=recognition__pb2.StreamRequest.SerializeToString,
                 response_deserializer=recognition__pb2.RecognizeResponse.FromString,
                 _registered_method=True)
-        self.StopRTSPRecognition = channel.unary_unary(
-                '/recognition.RecognitionService/StopRTSPRecognition',
-                request_serializer=recognition__pb2.StopRTSPRequest.SerializeToString,
-                response_deserializer=recognition__pb2.StopRTSPResponse.FromString,
+        self.StopStreamRecognition = channel.unary_unary(
+                '/recognition.RecognitionService/StopStreamRecognition',
+                request_serializer=recognition__pb2.StopStreamRecognitionRequest.SerializeToString,
+                response_deserializer=recognition__pb2.StopStreamRecognitionResponse.FromString,
                 _registered_method=True)
-        self.GetRTSPStatus = channel.unary_unary(
-                '/recognition.RecognitionService/GetRTSPStatus',
-                request_serializer=recognition__pb2.RTSPStatusRequest.SerializeToString,
-                response_deserializer=recognition__pb2.RTSPStatusResponse.FromString,
+        self.GetStreamRecognitionStatus = channel.unary_unary(
+                '/recognition.RecognitionService/GetStreamRecognitionStatus',
+                request_serializer=recognition__pb2.StreamRecognitionStatusRequest.SerializeToString,
+                response_deserializer=recognition__pb2.StreamRecognitionStatusResponse.FromString,
                 _registered_method=True)
         self.StartWorker = channel.unary_unary(
                 '/recognition.RecognitionService/StartWorker',
@@ -105,20 +110,26 @@ class RecognitionServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RecognizeFromRTSP(self, request, context):
+    def TestRecognizeVideo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RecognizeFromStream(self, request, context):
         """Production methods
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def StopRTSPRecognition(self, request, context):
+    def StopStreamRecognition(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetRTSPStatus(self, request, context):
+    def GetStreamRecognitionStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -161,20 +172,25 @@ def add_RecognitionServiceServicer_to_server(servicer, server):
                     request_deserializer=recognition__pb2.TestRecognizeRequest.FromString,
                     response_serializer=recognition__pb2.TestRecognizeResponse.SerializeToString,
             ),
-            'RecognizeFromRTSP': grpc.unary_unary_rpc_method_handler(
-                    servicer.RecognizeFromRTSP,
-                    request_deserializer=recognition__pb2.RTSPRequest.FromString,
+            'TestRecognizeVideo': grpc.unary_unary_rpc_method_handler(
+                    servicer.TestRecognizeVideo,
+                    request_deserializer=recognition__pb2.TestVideoRequest.FromString,
+                    response_serializer=recognition__pb2.TestVideoResponse.SerializeToString,
+            ),
+            'RecognizeFromStream': grpc.unary_unary_rpc_method_handler(
+                    servicer.RecognizeFromStream,
+                    request_deserializer=recognition__pb2.StreamRequest.FromString,
                     response_serializer=recognition__pb2.RecognizeResponse.SerializeToString,
             ),
-            'StopRTSPRecognition': grpc.unary_unary_rpc_method_handler(
-                    servicer.StopRTSPRecognition,
-                    request_deserializer=recognition__pb2.StopRTSPRequest.FromString,
-                    response_serializer=recognition__pb2.StopRTSPResponse.SerializeToString,
+            'StopStreamRecognition': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopStreamRecognition,
+                    request_deserializer=recognition__pb2.StopStreamRecognitionRequest.FromString,
+                    response_serializer=recognition__pb2.StopStreamRecognitionResponse.SerializeToString,
             ),
-            'GetRTSPStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetRTSPStatus,
-                    request_deserializer=recognition__pb2.RTSPStatusRequest.FromString,
-                    response_serializer=recognition__pb2.RTSPStatusResponse.SerializeToString,
+            'GetStreamRecognitionStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetStreamRecognitionStatus,
+                    request_deserializer=recognition__pb2.StreamRecognitionStatusRequest.FromString,
+                    response_serializer=recognition__pb2.StreamRecognitionStatusResponse.SerializeToString,
             ),
             'StartWorker': grpc.unary_unary_rpc_method_handler(
                     servicer.StartWorker,
@@ -285,7 +301,7 @@ class RecognitionService(object):
             _registered_method=True)
 
     @staticmethod
-    def RecognizeFromRTSP(request,
+    def TestRecognizeVideo(request,
             target,
             options=(),
             channel_credentials=None,
@@ -298,8 +314,35 @@ class RecognitionService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/recognition.RecognitionService/RecognizeFromRTSP',
-            recognition__pb2.RTSPRequest.SerializeToString,
+            '/recognition.RecognitionService/TestRecognizeVideo',
+            recognition__pb2.TestVideoRequest.SerializeToString,
+            recognition__pb2.TestVideoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RecognizeFromStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/recognition.RecognitionService/RecognizeFromStream',
+            recognition__pb2.StreamRequest.SerializeToString,
             recognition__pb2.RecognizeResponse.FromString,
             options,
             channel_credentials,
@@ -312,7 +355,7 @@ class RecognitionService(object):
             _registered_method=True)
 
     @staticmethod
-    def StopRTSPRecognition(request,
+    def StopStreamRecognition(request,
             target,
             options=(),
             channel_credentials=None,
@@ -325,9 +368,9 @@ class RecognitionService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/recognition.RecognitionService/StopRTSPRecognition',
-            recognition__pb2.StopRTSPRequest.SerializeToString,
-            recognition__pb2.StopRTSPResponse.FromString,
+            '/recognition.RecognitionService/StopStreamRecognition',
+            recognition__pb2.StopStreamRecognitionRequest.SerializeToString,
+            recognition__pb2.StopStreamRecognitionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -339,7 +382,7 @@ class RecognitionService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetRTSPStatus(request,
+    def GetStreamRecognitionStatus(request,
             target,
             options=(),
             channel_credentials=None,
@@ -352,9 +395,9 @@ class RecognitionService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/recognition.RecognitionService/GetRTSPStatus',
-            recognition__pb2.RTSPStatusRequest.SerializeToString,
-            recognition__pb2.RTSPStatusResponse.FromString,
+            '/recognition.RecognitionService/GetStreamRecognitionStatus',
+            recognition__pb2.StreamRecognitionStatusRequest.SerializeToString,
+            recognition__pb2.StreamRecognitionStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,
