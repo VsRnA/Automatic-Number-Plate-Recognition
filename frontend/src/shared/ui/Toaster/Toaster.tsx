@@ -1,4 +1,4 @@
-import { useToast } from '@/shared/lib/toast'
+import { useToast } from '@/shared/lib'
 import styles from './Toaster.module.css'
 
 function CloseIcon() {
