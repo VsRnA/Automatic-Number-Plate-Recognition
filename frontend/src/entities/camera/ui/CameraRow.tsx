@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Camera } from '../model/types'
 import { VideoStream } from './VideoStream/VideoStream'
+import { formatDate } from '@/shared/lib'
 import styles from './CameraRow.module.css'
 
 function parseStream(url: string): { host: string; path: string } {
@@ -11,14 +12,6 @@ function parseStream(url: string): { host: string; path: string } {
     host: withoutProtocol.slice(0, slashIdx),
     path: withoutProtocol.slice(slashIdx),
   }
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
 }
 
 

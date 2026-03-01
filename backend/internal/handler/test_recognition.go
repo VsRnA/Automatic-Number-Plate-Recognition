@@ -44,7 +44,9 @@ func (h *TestRecognitionHandler) RecognizeVideo(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.client.TestRecognizeVideo(c.Request.Context(), videoData, 0)
+	cameraID := c.Query("cameraId")
+
+	resp, err := h.client.TestRecognizeVideo(c.Request.Context(), videoData, 0, cameraID)
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"error":   "recognition service unavailable",

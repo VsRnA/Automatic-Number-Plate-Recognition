@@ -24,7 +24,7 @@ class PlateVotingBuffer:
         self._frames_without_reading = 0
         self._last_sent: str | None = None
 
-    def on_frame(self, plate: str | None) -> str | None:
+    def on_frame(self, plate: str | None) -> tuple[str, float] | None:
         if plate is None:
             self._frames_without_reading += 1
             if self._frames_without_reading >= self._stale_frames:
@@ -40,15 +40,23 @@ class PlateVotingBuffer:
             return None
 
         voted = self._vote()
-        if voted and voted != self._last_sent:
-            self._last_sent = voted
-            self._readings.clear()
-            logger.info(f"PlateVotingBuffer: confirmed → {voted!r}")
+        if voted and voted[0] != self._last_sent:
+            self._last_sent = voted[0]
+            logger.info(f"PlateVotingBuffer: confirmed → {voted[0]!r} (ratio={voted[1]:.0%})")
             return voted
 
         return None
 
-    def _vote(self) -> str | None:
+    def flush(self) -> tuple[str, float] | None:
+        """Return best available result ignoring min_votes — for end-of-video flush."""
+        if not self._readings:
+            return None
+        result = self._majority_vote(list(self._readings))
+        if result is None or result[0] == self._last_sent:
+            return None
+        return result
+
+    def _vote(self) -> tuple[str, float] | None:
         readings = list(self._readings)
         lengths = Counter(len(r) for r in readings)
         dominant_length = lengths.most_common(1)[0][0]
@@ -56,6 +64,13 @@ class PlateVotingBuffer:
 
         if len(same_length) < self.min_votes:
             return None
+
+        return self._majority_vote(readings)
+
+    def _majority_vote(self, readings: list[str]) -> tuple[str, float] | None:
+        lengths = Counter(len(r) for r in readings)
+        dominant_length = lengths.most_common(1)[0][0]
+        same_length = [r for r in readings if len(r) == dominant_length]
 
         result = []
         for pos in range(dominant_length):
@@ -65,7 +80,9 @@ class PlateVotingBuffer:
                 return None
             result.append(voted_char)
 
-        return "".join(result)
+        winner = "".join(result)
+        ratio = sum(1 for r in readings if r == winner) / len(readings)
+        return winner, ratio
 
 
 class WorkerThread(threading.Thread):
@@ -94,6 +111,9 @@ class WorkerThread(threading.Thread):
 
         self._last_detection_frame: Optional[np.ndarray] = None
         self._last_best_plate: Optional[PlateResult] = None
+
+        self._confirmed_times: dict[str, float] = {}
+        self._cooldown_seconds: float = 60.0
 
     def run(self):
         retry_count = 0
@@ -186,10 +206,19 @@ class WorkerThread(threading.Thread):
             self._last_detection_frame = frame.copy()
             self._last_best_plate = best_plate
 
-        voted_plate = self._voting_buffer.on_frame(best_plate.plate_number if best_plate else None)
+        voted = self._voting_buffer.on_frame(best_plate.plate_number if best_plate else None)
 
-        if voted_plate is None:
+        if voted is None:
             return
+
+        voted_plate, vote_confidence = voted
+
+        now = time.time()
+        last_confirmed = self._confirmed_times.get(voted_plate, 0.0)
+        if now - last_confirmed < self._cooldown_seconds:
+            logger.debug(f"Camera {self.worker.camera_id}: plate {voted_plate!r} in cooldown, skipping")
+            return
+        self._confirmed_times[voted_plate] = now
 
         screenshot_url: str | None = None
         if self._last_detection_frame is not None and self._last_best_plate is not None:
@@ -206,7 +235,7 @@ class WorkerThread(threading.Thread):
 
         plates_payload = [{
             "plate_number": voted_plate,
-            "confidence": self._last_best_plate.confidence if self._last_best_plate else 0.0,
+            "confidence": vote_confidence,
             "screenshot_url": screenshot_url or "",
             "bounding_box": {
                 "x": self._last_best_plate.bounding_box.x,

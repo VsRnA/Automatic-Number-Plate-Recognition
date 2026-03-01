@@ -1,15 +1,5 @@
 import styles from './Sidebar.module.css'
 
-function DashboardIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
 
 function CameraIcon() {
   return (
@@ -68,10 +58,19 @@ function KeyIcon() {
   )
 }
 
+function AccessPointIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" />
+    </svg>
+  )
+}
+
 const NAV_MAIN = [
-  { id: 'dashboard', label: 'Панель управления', icon: <DashboardIcon /> },
   { id: 'cameras', label: 'Камеры', icon: <CameraIcon /> },
   { id: 'plates', label: 'Номера', icon: <PlateIcon /> },
+  { id: 'access-points', label: 'Точки доступа', icon: <AccessPointIcon /> },
   { id: 'history', label: 'История', icon: <HistoryIcon /> },
 ]
 
@@ -83,9 +82,10 @@ const NAV_CONFIG = [
 
 interface SidebarProps {
   activeItem?: string
+  onNavigate?: (id: string) => void
 }
 
-export function Sidebar({ activeItem = 'cameras' }: SidebarProps) {
+export function Sidebar({ activeItem = 'cameras', onNavigate }: SidebarProps) {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logo}>
@@ -100,6 +100,7 @@ export function Sidebar({ activeItem = 'cameras' }: SidebarProps) {
             <button
               key={item.id}
               className={`${styles.navItem} ${activeItem === item.id ? styles.navItemActive : ''}`}
+              onClick={() => onNavigate?.(item.id)}
             >
               <span className={styles.navIcon}>{item.icon}</span>
               {item.label}
@@ -113,6 +114,7 @@ export function Sidebar({ activeItem = 'cameras' }: SidebarProps) {
             <button
               key={item.id}
               className={`${styles.navItem} ${activeItem === item.id ? styles.navItemActive : ''}`}
+              onClick={() => onNavigate?.(item.id)}
             >
               <span className={styles.navIcon}>{item.icon}</span>
               {item.label}

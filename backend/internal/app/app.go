@@ -12,6 +12,7 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/handler"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/worker"
 )
 
 type App struct {
@@ -65,10 +66,26 @@ func (a *App) Run() error {
 		}
 	}()
 
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	recognitionWorker := worker.NewRecognitionWorker(
+		repositories.Plate,
+		repositories.Camera,
+		repositories.Recognition,
+	)
+	consumer := infrastructure.NewRedisConsumer(
+		redisClient,
+		cfg.RedisStream,
+		"anpr-backend",
+		"recognition-consumer-1",
+		recognitionWorker,
+	)
+	go consumer.Start(workerCtx)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	<-quit
 
+	workerCancel()
 	log.Println("Shutting down server...")
 
 	if err := srv.Shutdown(context.Background()); err != nil {

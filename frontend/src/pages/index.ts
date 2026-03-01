@@ -1,3 +1,6 @@
 export { CamerasPage } from './cameras'
 export { CameraPage } from './camera'
 export { CameraAddPage } from './camera-add'
+export { PlatesPage } from './plates'
+export { AccessPointsPage } from './access-points'
+export { HistoryPage } from './history'

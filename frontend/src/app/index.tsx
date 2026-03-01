@@ -1,24 +1,32 @@
 import { useState } from 'react'
 import './styles/index.css'
 import { Sidebar } from '@/widgets/sidebar'
-import { CamerasPage } from '@/pages/cameras'
-import { CameraPage } from '@/pages/camera'
-import { CameraAddPage } from '@/pages/camera-add'
-import { ToastProvider } from '@/shared/lib'
-import { Toaster } from '@/shared/ui'
+import { CamerasPage, CameraPage, CameraAddPage, PlatesPage, AccessPointsPage, HistoryPage } from '@/pages'
+import { ToastProvider, Toaster } from '@/shared/ui'
 
+type SidebarPage = 'cameras' | 'plates' | 'access-points' | 'history'
 type Route =
-  | { page: 'cameras' }
+  | { page: SidebarPage }
   | { page: 'camera'; id: string }
   | { page: 'camera-add' }
+
+const SIDEBAR_PAGES: SidebarPage[] = ['cameras', 'plates', 'access-points', 'history']
 
 function App() {
   const [route, setRoute] = useState<Route>({ page: 'cameras' })
 
+  const handleNavigate = (id: string) => {
+    if ((SIDEBAR_PAGES as string[]).includes(id)) {
+      setRoute({ page: id as SidebarPage })
+    }
+  }
+
+  const activeItem: string = route.page === 'camera' || route.page === 'camera-add' ? 'cameras' : route.page
+
   return (
     <ToastProvider>
       <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <Sidebar activeItem="cameras" />
+        <Sidebar activeItem={activeItem} onNavigate={handleNavigate} />
 
         {route.page === 'cameras' && (
           <CamerasPage
@@ -40,6 +48,12 @@ function App() {
             onCreated={() => setRoute({ page: 'cameras' })}
           />
         )}
+
+        {route.page === 'plates' && <PlatesPage />}
+
+        {route.page === 'access-points' && <AccessPointsPage />}
+
+        {route.page === 'history' && <HistoryPage />}
       </div>
       <Toaster />
     </ToastProvider>

@@ -6,6 +6,7 @@ from datetime import datetime
 import grpc
 
 from infrastructure.grpc.stubs import recognition_pb2, recognition_pb2_grpc
+from infrastructure.storage.redis_producer import RedisProducer
 from internal.exception.exceptions import RecognitionError
 from internal.model.worker import WorkerStatus
 from internal.service.recognition_service import RecognitionService
@@ -18,9 +19,15 @@ logger = logging.getLogger(__name__)
 class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
     VERSION = "2.0.0"
 
-    def __init__(self, recognition_service: RecognitionService, worker_manager: WorkerManager):
+    def __init__(
+        self,
+        recognition_service: RecognitionService,
+        worker_manager: WorkerManager,
+        redis_producer: RedisProducer,
+    ):
         self._recognition_service = recognition_service
         self._worker_manager = worker_manager
+        self._redis_producer = redis_producer
 
     def HealthCheck(self, request, context):
         return recognition_pb2.HealthResponse(
@@ -125,6 +132,9 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
                 for p in r.plates
             ]
 
+            if request.camera_id and detections:
+                self._publish_to_redis(request.camera_id, results)
+
             return recognition_pb2.TestVideoResponse(
                 success=True,
                 detections=detections,
@@ -143,6 +153,27 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+
+    def _publish_to_redis(self, camera_id: str, results: list) -> None:
+        try:
+            plates = [
+                {
+                    "plate_number": p.plate_number,
+                    "confidence": p.confidence,
+                    "screenshot_url": r.screenshot_url or "",
+                }
+                for r in results
+                for p in r.plates
+                if p.plate_number
+            ]
+            if plates:
+                self._redis_producer.send_recognition_result(
+                    camera_id=camera_id,
+                    plates=plates,
+                    timestamp=datetime.utcnow(),
+                )
+        except Exception as e:
+            logger.warning(f"TestRecognizeVideo: failed to publish to Redis: {e}")
 
     def StartWorker(self, request, context):
         success, message = self._worker_manager.start_worker(request.camera_id, request.stream)
