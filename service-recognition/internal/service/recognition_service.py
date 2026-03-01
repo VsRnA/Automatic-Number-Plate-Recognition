@@ -60,11 +60,8 @@ class RecognitionService:
 
     def process_frame(self, frame: np.ndarray) -> RecognitionResult:
         start = time.time()
-        h = frame.shape[0]
-        y_offset = int(h * 0.3)
-        roi = frame[y_offset:, :]
 
-        detections = self._detector.detect(roi)
+        detections = self._detector.detect(frame)
 
         plates = []
         for detection in detections:
@@ -72,11 +69,11 @@ class RecognitionService:
                 continue
 
             x1 = detection.x1
-            y1 = detection.y1 + y_offset
+            y1 = detection.y1
             x2 = detection.x2
-            y2 = detection.y2 + y_offset
+            y2 = detection.y2
 
-            if (x2 - x1) < 50 or (y2 - y1) < 18:
+            if (x2 - x1) < 30 or (y2 - y1) < 10:
                 continue
 
             x1, y1, x2, y2 = _expand_bbox_to_ratio(

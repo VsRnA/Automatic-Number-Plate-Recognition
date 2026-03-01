@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     redis_host: str = "localhost"
     redis_port: int = 6379
-    redis_stream: str = "recognition:results"
+    redis_stream: str = "anpr:results"
 
     s3_endpoint: str = ""
     s3_access_key: str = ""

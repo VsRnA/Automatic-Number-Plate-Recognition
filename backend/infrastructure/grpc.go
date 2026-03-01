@@ -60,10 +60,11 @@ func (c *RecognitionClient) TestRecognize(ctx context.Context, imageBase64 strin
 	})
 }
 
-func (c *RecognitionClient) TestRecognizeVideo(ctx context.Context, videoData []byte, frameInterval int32) (*pb.TestVideoResponse, error) {
+func (c *RecognitionClient) TestRecognizeVideo(ctx context.Context, videoData []byte, frameInterval int32, cameraID string) (*pb.TestVideoResponse, error) {
 	return c.client.TestRecognizeVideo(ctx, &pb.TestVideoRequest{
 		VideoData:     videoData,
 		FrameInterval: frameInterval,
+		CameraId:      cameraID,
 	})
 }
 

@@ -1,19 +1,9 @@
 import { useState, useEffect } from 'react'
 import type { Camera, UpdateCameraDto } from '@/entities/camera'
 import { cameraApi, VideoStream } from '@/entities/camera'
-import { useToast } from '@/shared/lib'
+import { useToast, formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
 import styles from './CameraPage.module.css'
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 interface CameraPageProps {
   id: string
@@ -144,8 +134,8 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
                 </span>
               </div>
               <div className={styles.cameraDates}>
-                <span>Добавлена: {formatDate(camera.createdAt)}</span>
-                <span>Обновлена: {formatDate(camera.updatedAt)}</span>
+                <span>Добавлена: {formatDateTime(camera.createdAt)}</span>
+                <span>Обновлена: {formatDateTime(camera.updatedAt)}</span>
               </div>
             </div>
 

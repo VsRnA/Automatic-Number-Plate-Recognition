@@ -154,6 +154,7 @@ message GetWorkerStatusResponse {
 message TestVideoRequest {
   bytes video_data = 1;
   int32 frame_interval = 2;  // process every Nth frame (0 = use service default)
+  string camera_id = 3;      // optional: associate result with a camera for history recording
 }
 
 // TestVideoResponse returns all plates found in the video

@@ -55,5 +55,6 @@ def run() -> None:
     servicer = RecognitionServicer(
         recognition_service=recognition_service,
         worker_manager=worker_manager,
+        redis_producer=redis,
     )
     serve(settings.grpc_port, servicer)

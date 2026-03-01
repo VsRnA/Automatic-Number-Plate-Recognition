@@ -11,12 +11,14 @@ import (
 )
 
 type Handler struct {
-	Plate           IPlateHandler
-	Camera          ICameraHandler
-	Recognition     IRecognitionHandler
-	TestRecognition ITestRecognitionHandler
-	Stream          IStreamHandler
-	cfg             config.Config
+	Plate              IPlateHandler
+	Camera             ICameraHandler
+	Recognition        IRecognitionHandler
+	TestRecognition    ITestRecognitionHandler
+	Stream             IStreamHandler
+	AccessPoint        IAccessPointHandler
+	RecognitionHistory IRecognitionHistoryHandler
+	cfg                config.Config
 }
 
 func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient, redisClient *redis.Client, ffmpegManager *infrastructure.FFmpegManager) *Handler {
@@ -33,7 +35,9 @@ func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClien
 			redisClient,
 			cfg.RedisStream,
 		),
-		cfg: cfg,
+		AccessPoint:        NewAccessPointHandler(repo.AccessPoint, validate),
+		RecognitionHistory: NewRecognitionHistoryHandler(repo.Recognition),
+		cfg:                cfg,
 	}
 }
 
@@ -68,11 +72,21 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			cameras.GET("/:id/hls/*file", h.Stream.ServeHLS)
 		}
 
+		accessPoints := api.Group("/access-points")
+		{
+			accessPoints.POST("", h.AccessPoint.CreateAccessPoint)
+			accessPoints.GET("", h.AccessPoint.ListAccessPoints)
+			accessPoints.GET("/:id", h.AccessPoint.GetAccessPoint)
+			accessPoints.PUT("/:id", h.AccessPoint.UpdateAccessPoint)
+			accessPoints.DELETE("/:id", h.AccessPoint.DeleteAccessPoint)
+		}
+
 		recognition := api.Group("/recognition")
 		{
 			recognition.GET("/health", h.Recognition.HealthCheck)
 			recognition.POST("/ping", h.Recognition.Ping)
 			recognition.POST("/test", h.Recognition.TestRecognize)
+			recognition.GET("/list", h.RecognitionHistory.ListHistory)
 		}
 
 		test := api.Group("/test")
