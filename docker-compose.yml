@@ -10,6 +10,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - service-recognition
     environment:
       - DB_HOST=postgres
       - DB_PORT=${DB_PORT}

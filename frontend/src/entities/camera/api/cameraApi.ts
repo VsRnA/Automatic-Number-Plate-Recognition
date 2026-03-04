@@ -1,6 +1,5 @@
 import { api } from '@/shared/api'
-import { API_BASE_URL } from '@/shared/config'
-import type { Camera, StreamStatusResponse } from '../model/types'
+import type { Camera } from '../model/types'
 
 export interface CameraListParams {
   name?: string
@@ -52,18 +51,4 @@ export const cameraApi = {
     api.put<Camera>(`/cameras/${id}`, data),
 
   delete: (id: string): Promise<void> => api.delete(`/cameras/${id}`),
-
-  stream: {
-    start: (id: string): Promise<{ message: string }> =>
-      api.post(`/cameras/${id}/stream/start`, {}),
-
-    stop: (id: string): Promise<{ message: string }> =>
-      api.delete(`/cameras/${id}/stream/stop`) as unknown as Promise<{ message: string }>,
-
-    status: (id: string): Promise<StreamStatusResponse> =>
-      api.get<StreamStatusResponse>(`/cameras/${id}/stream/status`),
-
-    hlsUrl: (id: string): string =>
-      `${API_BASE_URL}/cameras/${id}/hls/index.m3u8`,
-  },
 }

@@ -80,17 +80,6 @@ export function PlatesPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.breadcrumb}>
-          <span className={styles.breadcrumbRoot}>Система</span>
-          <span className={styles.breadcrumbSep}>/</span>
-          <span className={styles.breadcrumbCurrent}>Номера</span>
-        </div>
-        <button className={styles.btnPrimary} onClick={() => setShowAdd(true)}>
-          + Добавить номер
-        </button>
-      </header>
-
       {showAdd && (
         <div className={styles.modal}>
           <div className={styles.modalCard}>
@@ -150,17 +139,17 @@ export function PlatesPage() {
 
       <div className={styles.content}>
         <div className={styles.statsRow}>
-          <div className={styles.statChip}>
-            <span className={styles.statChipLabel}>ВСЕГО</span>
-            <span className={styles.statChipCount}>{plates.length}</span>
+          <div className={styles.statPill}>
+            <span className={styles.statPillLabel}>Всего</span>
+            <span className={styles.statPillCount}>{plates.length}</span>
           </div>
-          <div className={styles.statChip}>
-            <span className={`${styles.statChipLabel} ${styles.labelGreen}`}>АКТИВНЫ</span>
-            <span className={`${styles.statChipCount} ${styles.countGreen}`}>{plates.filter(p => p.isEnabled).length}</span>
+          <div className={`${styles.statPill} ${styles.statPillGreen}`}>
+            <span className={styles.statPillLabel}>Активны</span>
+            <span className={styles.statPillCount}>{plates.filter(p => p.isEnabled).length}</span>
           </div>
-          <div className={styles.statChip}>
-            <span className={`${styles.statChipLabel} ${styles.labelRed}`}>ЗАБЛОКИРОВАНЫ</span>
-            <span className={`${styles.statChipCount} ${styles.countRed}`}>{plates.filter(p => p.accessType === 'blocked').length}</span>
+          <div className={`${styles.statPill} ${styles.statPillRed}`}>
+            <span className={styles.statPillLabel}>Заблокированы</span>
+            <span className={styles.statPillCount}>{plates.filter(p => p.accessType === 'blocked').length}</span>
           </div>
         </div>
 
@@ -171,6 +160,7 @@ export function PlatesPage() {
               value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <span className={styles.recordsCount}>{filtered.length} записей</span>
+          <button className={styles.btnPrimary} onClick={() => setShowAdd(true)}>+ Добавить номер</button>
         </div>
 
         <div className={styles.tableWrapper}>

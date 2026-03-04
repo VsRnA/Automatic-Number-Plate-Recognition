@@ -4,133 +4,65 @@
   flex-direction: column;
   min-height: 100vh;
   background-color: #f7f8fa;
+  min-width: 0;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 28px;
-  background-color: #fff;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.breadcrumbRoot {
-  color: #9ca3af;
-}
-
-.breadcrumbSep {
-  color: #d1d5db;
-}
-
-.breadcrumbCurrent {
-  color: #111827;
-  font-weight: 600;
-}
-
-.headerActions {
-  display: flex;
-  gap: 10px;
-}
-
-.btnOutline {
-  padding: 8px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #374151;
-  cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
-}
-
-.btnOutline:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
-}
-
-.btnPrimary {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  background-color: #2563eb;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #fff;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.btnPrimary:hover {
-  background-color: #1d4ed8;
-}
-
-.btnPrimary:disabled {
-  background-color: #93c5fd;
-  cursor: not-allowed;
-}
-
+/* ── Content ── */
 .content {
   padding: 24px 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
-/* ── Stats chips ── */
+/* ── Stat pills ── */
 .statsRow {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.statChip {
-  display: flex;
+.statPill {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1.5px solid #111827;
+  background: transparent;
+  white-space: nowrap;
 }
 
-.statChipLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+.statPillGreen {
+  border-color: #16a34a;
 }
 
-.statChipCount {
-  font-size: 15px;
+.statPillGreen .statPillLabel,
+.statPillGreen .statPillCount {
+  color: #16a34a;
+}
+
+.statPillRed {
+  border-color: #dc2626;
+}
+
+.statPillRed .statPillLabel,
+.statPillRed .statPillCount {
+  color: #dc2626;
+}
+
+.statPillLabel {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.statPillCount {
+  font-size: 13.5px;
   font-weight: 700;
   color: #111827;
   font-variant-numeric: tabular-nums;
-}
-
-.labelGreen {
-  color: #16a34a;
-}
-
-.countGreen {
-  color: #16a34a;
-}
-
-.labelRed {
-  color: #dc2626;
-}
-
-.countRed {
-  color: #dc2626;
 }
 
 /* ── Toolbar ── */
@@ -138,11 +70,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .searchWrapper {
   position: relative;
-  width: 300px;
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
 }
 
 .searchIcon {
@@ -152,6 +87,7 @@
   transform: translateY(-50%);
   display: flex;
   align-items: center;
+  pointer-events: none;
 }
 
 .searchInput {
@@ -188,12 +124,12 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: #6b7280;
-  letter-spacing: 0.3px;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  transition: background-color 0.15s, border-color 0.15s;
+  white-space: nowrap;
 }
 
 .filterBtn:hover {
@@ -205,6 +141,7 @@
   margin-left: auto;
   font-size: 13px;
   color: #9ca3af;
+  white-space: nowrap;
 }
 
 /* ── Table ── */
@@ -212,12 +149,14 @@
   background-color: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 700px;
 }
 
 .theadRow {
@@ -272,4 +211,65 @@
 
 .retryBtn:hover {
   background-color: #fef2f2;
+}
+
+/* ── Table footer ── */
+.tableFooter {
+  padding: 2px 0;
+}
+
+.addLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2563eb;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+
+.addLink:hover {
+  color: #1d4ed8;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .content {
+    padding: 18px 20px;
+  }
+
+  .header {
+    padding: 16px 20px 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 14px 16px;
+  }
+
+  .header {
+    padding: 14px 16px 12px;
+  }
+
+  .pageTitle {
+    font-size: 20px;
+  }
+
+  .searchWrapper {
+    max-width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .toolbar {
+    gap: 8px;
+  }
+
+  .recordsCount {
+    margin-left: 0;
+  }
 }

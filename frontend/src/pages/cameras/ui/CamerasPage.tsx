@@ -87,32 +87,19 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.breadcrumb}>
-          <span className={styles.breadcrumbRoot}>Система</span>
-          <span className={styles.breadcrumbSep}>/</span>
-          <span className={styles.breadcrumbCurrent}>Камеры</span>
-        </div>
-        <div className={styles.headerActions}>
-          <button className={styles.btnPrimary} onClick={onAddCamera}>
-            + Добавить камеру
-          </button>
-        </div>
-      </header>
-
       <div className={styles.content}>
         <div className={styles.statsRow}>
-          <div className={styles.statChip}>
-            <span className={styles.statChipLabel}>ВСЕГО</span>
-            <span className={styles.statChipCount}>{totalCount}</span>
+          <div className={styles.statPill}>
+            <span className={styles.statPillLabel}>Всего</span>
+            <span className={styles.statPillCount}>{totalCount}</span>
           </div>
-          <div className={styles.statChip}>
-            <span className={`${styles.statChipLabel} ${styles.labelGreen}`}>АКТИВНЫ</span>
-            <span className={`${styles.statChipCount} ${styles.countGreen}`}>{activeCount}</span>
+          <div className={`${styles.statPill} ${styles.statPillGreen}`}>
+            <span className={styles.statPillLabel}>Активны</span>
+            <span className={styles.statPillCount}>{activeCount}</span>
           </div>
-          <div className={styles.statChip}>
-            <span className={`${styles.statChipLabel} ${styles.labelRed}`}>ОТКЛЮЧЕНЫ</span>
-            <span className={`${styles.statChipCount} ${styles.countRed}`}>{disabledCount}</span>
+          <div className={`${styles.statPill} ${styles.statPillRed}`}>
+            <span className={styles.statPillLabel}>Отключены</span>
+            <span className={styles.statPillCount}>{disabledCount}</span>
           </div>
         </div>
 
@@ -131,7 +118,7 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
           </div>
           <div className={styles.filters}>
             <button className={styles.filterBtn}>
-              <FilterIcon /> СТАТУС
+              <FilterIcon /> Статус
             </button>
           </div>
           <span className={styles.recordsCount}>{filtered.length} записей</span>
@@ -187,6 +174,12 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
               </tbody>
             </table>
           )}
+        </div>
+
+        <div className={styles.tableFooter}>
+          <button className={styles.addLink} onClick={onAddCamera}>
+            + Добавить камеру
+          </button>
         </div>
       </div>
     </div>

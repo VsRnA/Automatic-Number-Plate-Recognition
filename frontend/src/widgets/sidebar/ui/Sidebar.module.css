@@ -6,6 +6,7 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  transition: width 0.2s;
 }
 
 .logo {
@@ -50,6 +51,8 @@
   letter-spacing: 1px;
   text-transform: uppercase;
   padding: 0 8px 8px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .navItem {
@@ -90,4 +93,62 @@
   justify-content: center;
   flex-shrink: 0;
   width: 18px;
+}
+
+.navLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 180px;
+  }
+
+  .logoTitle {
+    font-size: 17px;
+  }
+
+  .navItem {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    width: 52px;
+  }
+
+  .logoSubtitle,
+  .sectionLabel,
+  .navLabel {
+    display: none;
+  }
+
+  .logoTitle {
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .logo {
+    padding: 16px 8px;
+    text-align: center;
+  }
+
+  .nav {
+    padding: 10px 6px;
+    gap: 16px;
+  }
+
+  .navItem {
+    padding: 10px;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .navIcon {
+    width: 20px;
+  }
 }

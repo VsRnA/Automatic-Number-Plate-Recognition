@@ -74,17 +74,6 @@ export function AccessPointsPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.breadcrumb}>
-          <span className={styles.breadcrumbRoot}>Система</span>
-          <span className={styles.breadcrumbSep}>/</span>
-          <span className={styles.breadcrumbCurrent}>Точки доступа</span>
-        </div>
-        <button className={styles.btnPrimary} onClick={() => setShowAdd(true)}>
-          + Добавить точку
-        </button>
-      </header>
-
       {showAdd && (
         <div className={styles.modal}>
           <div className={styles.modalCard}>
@@ -126,13 +115,13 @@ export function AccessPointsPage() {
 
       <div className={styles.content}>
         <div className={styles.statsRow}>
-          <div className={styles.statChip}>
-            <span className={styles.statChipLabel}>ВСЕГО</span>
-            <span className={styles.statChipCount}>{items.length}</span>
+          <div className={styles.statPill}>
+            <span className={styles.statPillLabel}>Всего</span>
+            <span className={styles.statPillCount}>{items.length}</span>
           </div>
-          <div className={styles.statChip}>
-            <span className={`${styles.statChipLabel} ${styles.labelGreen}`}>АКТИВНЫ</span>
-            <span className={`${styles.statChipCount} ${styles.countGreen}`}>{items.filter(p => p.isEnabled).length}</span>
+          <div className={`${styles.statPill} ${styles.statPillGreen}`}>
+            <span className={styles.statPillLabel}>Активны</span>
+            <span className={styles.statPillCount}>{items.filter(p => p.isEnabled).length}</span>
           </div>
         </div>
 
@@ -143,6 +132,7 @@ export function AccessPointsPage() {
               value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <span className={styles.recordsCount}>{filtered.length} записей</span>
+          <button className={styles.btnPrimary} onClick={() => setShowAdd(true)}>+ Добавить точку</button>
         </div>
 
         <div className={styles.tableWrapper}>

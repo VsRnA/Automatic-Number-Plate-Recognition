@@ -2,7 +2,6 @@ import logging
 import socket
 import threading
 import time
-from collections import Counter, deque
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
@@ -10,79 +9,11 @@ from urllib.parse import urlparse
 import cv2
 import numpy as np
 
-from internal.model.models import PlateResult
+from internal.model.models import BoundingBox, PlateResult
 from internal.model.worker import Worker, WorkerStatus
+from internal.tracking.tracker import ConfirmedDetection, Tracker
 
 logger = logging.getLogger(__name__)
-
-
-class PlateVotingBuffer:
-    def __init__(self, min_votes: int = 3, buffer_size: int = 10, stale_frames: int = 10):
-        self.min_votes = min_votes
-        self._readings: deque[str] = deque(maxlen=buffer_size)
-        self._stale_frames = stale_frames
-        self._frames_without_reading = 0
-        self._last_sent: str | None = None
-
-    def on_frame(self, plate: str | None) -> tuple[str, float] | None:
-        if plate is None:
-            self._frames_without_reading += 1
-            if self._frames_without_reading >= self._stale_frames:
-                self._readings.clear()
-                self._last_sent = None
-                self._frames_without_reading = 0
-            return None
-
-        self._frames_without_reading = 0
-        self._readings.append(plate)
-
-        if len(self._readings) < self.min_votes:
-            return None
-
-        voted = self._vote()
-        if voted and voted[0] != self._last_sent:
-            self._last_sent = voted[0]
-            logger.info(f"PlateVotingBuffer: confirmed → {voted[0]!r} (ratio={voted[1]:.0%})")
-            return voted
-
-        return None
-
-    def flush(self) -> tuple[str, float] | None:
-        """Return best available result ignoring min_votes — for end-of-video flush."""
-        if not self._readings:
-            return None
-        result = self._majority_vote(list(self._readings))
-        if result is None or result[0] == self._last_sent:
-            return None
-        return result
-
-    def _vote(self) -> tuple[str, float] | None:
-        readings = list(self._readings)
-        lengths = Counter(len(r) for r in readings)
-        dominant_length = lengths.most_common(1)[0][0]
-        same_length = [r for r in readings if len(r) == dominant_length]
-
-        if len(same_length) < self.min_votes:
-            return None
-
-        return self._majority_vote(readings)
-
-    def _majority_vote(self, readings: list[str]) -> tuple[str, float] | None:
-        lengths = Counter(len(r) for r in readings)
-        dominant_length = lengths.most_common(1)[0][0]
-        same_length = [r for r in readings if len(r) == dominant_length]
-
-        result = []
-        for pos in range(dominant_length):
-            chars = [r[pos] for r in same_length]
-            voted_char, vote_count = Counter(chars).most_common(1)[0]
-            if vote_count * 2 <= len(same_length):
-                return None
-            result.append(voted_char)
-
-        winner = "".join(result)
-        ratio = sum(1 for r in readings if r == winner) / len(readings)
-        return winner, ratio
 
 
 class WorkerThread(threading.Thread):
@@ -91,29 +22,31 @@ class WorkerThread(threading.Thread):
         worker: Worker,
         recognition_service,
         redis_producer,
-        frame_interval: int = 30,
-        confidence_threshold: float = 0.5,
+        frame_interval: int = 2,
         reconnect_delay: int = 5,
         max_retries: int = 3,
+        tracker_stale_frames: int = 15,
+        tracker_fuzzy_distance: int = 1,
+        tracker_min_iou: float = 0.3,
+        tracker_min_readings: int = 2,
     ):
         super().__init__(daemon=True)
         self.worker = worker
         self.recognition_service = recognition_service
         self.redis_producer = redis_producer
         self.frame_interval = frame_interval
-        self.confidence_threshold = confidence_threshold
         self.reconnect_delay = reconnect_delay
         self.max_retries = max_retries
 
         self._stop_event = threading.Event()
         self._frame_count = 0
-        self._voting_buffer = PlateVotingBuffer(min_votes=3, buffer_size=10, stale_frames=10)
 
-        self._last_detection_frame: Optional[np.ndarray] = None
-        self._last_best_plate: Optional[PlateResult] = None
-
-        self._confirmed_times: dict[str, float] = {}
-        self._cooldown_seconds: float = 60.0
+        self._tracker = Tracker(
+            stale_frames=tracker_stale_frames,
+            fuzzy_distance=tracker_fuzzy_distance,
+            min_iou=tracker_min_iou,
+            min_readings=tracker_min_readings,
+        )
 
     def run(self):
         retry_count = 0
@@ -194,60 +127,69 @@ class WorkerThread(threading.Thread):
                 cap.release()
 
     def _process_frame(self, frame: np.ndarray):
-        result = self.recognition_service.process_frame(frame)
+        detections = self.recognition_service.process_frame(frame)
+        confirmed_list = self._tracker.update(detections)
+        for confirmed in confirmed_list:
+            self._publish_confirmed(confirmed)
 
-        best_plate: Optional[PlateResult] = None
-        for plate in result.plates:
-            if plate.confidence >= self.confidence_threshold:
-                if best_plate is None or plate.confidence > best_plate.confidence:
-                    best_plate = plate
+    def _publish_confirmed(self, confirmed: ConfirmedDetection):
+        frame = confirmed.best_frame
+        plate_bbox = confirmed.plate_bbox
+        vehicle_bbox = confirmed.vehicle_bbox
 
-        if best_plate:
-            self._last_detection_frame = frame.copy()
-            self._last_best_plate = best_plate
-
-        voted = self._voting_buffer.on_frame(best_plate.plate_number if best_plate else None)
-
-        if voted is None:
+        if frame is None:
+            logger.warning(
+                f"Camera {self.worker.camera_id}: confirmed '{confirmed.plate_text}' "
+                f"but no best frame — skipping save"
+            )
             return
 
-        voted_plate, vote_confidence = voted
-
-        now = time.time()
-        last_confirmed = self._confirmed_times.get(voted_plate, 0.0)
-        if now - last_confirmed < self._cooldown_seconds:
-            logger.debug(f"Camera {self.worker.camera_id}: plate {voted_plate!r} in cooldown, skipping")
-            return
-        self._confirmed_times[voted_plate] = now
-
-        screenshot_url: str | None = None
-        if self._last_detection_frame is not None and self._last_best_plate is not None:
-            try:
-                screenshot_url = self.recognition_service.save_screenshot(
-                    self._last_detection_frame, [self._last_best_plate]
-                )
-            except Exception:
-                logger.warning(f"Screenshot save failed for camera {self.worker.camera_id}")
-
-        logger.info(
-            f"Camera {self.worker.camera_id}: confirmed '{voted_plate}', screenshot={screenshot_url}"
+        plate_result = PlateResult(
+            plate_number=confirmed.plate_text,
+            confidence=confirmed.confidence,
+            bounding_box=plate_bbox,
         )
 
-        plates_payload = [{
-            "plate_number": voted_plate,
-            "confidence": vote_confidence,
-            "screenshot_url": screenshot_url or "",
-            "bounding_box": {
-                "x": self._last_best_plate.bounding_box.x,
-                "y": self._last_best_plate.bounding_box.y,
-                "width": self._last_best_plate.bounding_box.width,
-                "height": self._last_best_plate.bounding_box.height,
-            } if self._last_best_plate else {},
-        }]
+        screenshot_url: str | None = None
+        car_crop_url: str | None = None
+        plate_crop_url: str | None = None
+
+        try:
+            screenshot_url = self.recognition_service.save_screenshot(frame, plate_result, plate_bbox)
+        except Exception:
+            logger.warning(f"Screenshot save failed for camera {self.worker.camera_id}")
+
+        if vehicle_bbox is not None:
+            try:
+                car_crop_url = self.recognition_service.save_car_crop(frame, vehicle_bbox, confirmed.plate_text)
+            except Exception:
+                logger.warning(f"Car crop save failed for camera {self.worker.camera_id}")
+
+        try:
+            plate_crop_url = self.recognition_service.save_plate_crop(frame, plate_bbox, confirmed.plate_text)
+        except Exception:
+            logger.warning(f"Plate crop save failed for camera {self.worker.camera_id}")
+
+        logger.info(
+            f"Camera {self.worker.camera_id}: confirmed plate '{confirmed.plate_text}' "
+            f"(conf={confirmed.confidence:.2f}), screenshot={screenshot_url}"
+        )
 
         self.redis_producer.send_recognition_result(
             camera_id=self.worker.camera_id,
-            plates=plates_payload,
+            plates=[{
+                "plate_number": confirmed.plate_text,
+                "confidence": confirmed.confidence,
+                "screenshot_url": screenshot_url or "",
+                "car_crop_url": car_crop_url or "",
+                "plate_crop_url": plate_crop_url or "",
+                "bounding_box": {
+                    "x": plate_bbox.x,
+                    "y": plate_bbox.y,
+                    "width": plate_bbox.width,
+                    "height": plate_bbox.height,
+                },
+            }],
             timestamp=datetime.now(timezone.utc),
         )
 
@@ -255,4 +197,14 @@ class WorkerThread(threading.Thread):
         self._stop_event.set()
         self.join(timeout)
         if self.is_alive():
-            logger.warning(f"Worker thread did not stop within {timeout}s for camera {self.worker.camera_id}")
+            logger.warning(
+                f"Worker thread did not stop within {timeout}s for camera {self.worker.camera_id}"
+            )
+
+        for confirmed in self._tracker.flush():
+            try:
+                self._publish_confirmed(confirmed)
+            except Exception:
+                logger.warning(
+                    f"Failed to publish flushed plate for camera {self.worker.camera_id}"
+                )

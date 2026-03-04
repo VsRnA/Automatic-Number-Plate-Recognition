@@ -16,14 +16,15 @@ class PlateDetection:
 
 
 class PlateDetector:
-    def __init__(self, model_path: str, conf: float = 0.2):
+    def __init__(self, model_path: str, conf: float = 0.2, imgsz: int = 1280):
         from ultralytics import YOLO
         self._model = YOLO(model_path)
         self._conf = conf
-        logger.info(f"PlateDetector: loaded from '{model_path}'")
+        self._imgsz = imgsz
+        logger.info(f"PlateDetector: loaded from '{model_path}', imgsz={imgsz}")
 
     def detect(self, frame: np.ndarray) -> list[PlateDetection]:
-        results = self._model(frame, imgsz=640, conf=self._conf, verbose=False)
+        results = self._model(frame, imgsz=self._imgsz, conf=self._conf, verbose=False)
 
         detections = []
         for result in results:

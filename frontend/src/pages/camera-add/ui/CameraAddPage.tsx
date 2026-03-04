@@ -60,21 +60,10 @@ export function CameraAddPage({ onBack, onCreated }: CameraAddPageProps) {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.breadcrumb}>
-          <button className={styles.breadcrumbBack} onClick={onBack}>
-            Система
-          </button>
-          <span className={styles.breadcrumbSep}>/</span>
-          <button className={styles.breadcrumbBack} onClick={onBack}>
-            Камеры
-          </button>
-          <span className={styles.breadcrumbSep}>/</span>
-          <span className={styles.breadcrumbCurrent}>Новая камера</span>
-        </div>
-      </header>
-
       <div className={styles.content}>
+        <div className={styles.topBar}>
+          <button className={styles.backLink} onClick={onBack}>← Камеры</button>
+        </div>
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <span className={styles.cardTitle}>Данные камеры</span>

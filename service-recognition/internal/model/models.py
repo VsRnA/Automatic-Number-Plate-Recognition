@@ -17,8 +17,15 @@ class PlateResult:
 
 
 @dataclass
+class RawDetection:
+    bounding_box: BoundingBox
+    confidence: float
+
+
+@dataclass
 class RecognitionResult:
     plates: list[PlateResult]
+    raw_detections: list[RawDetection]
     processing_time_ms: str
 
 

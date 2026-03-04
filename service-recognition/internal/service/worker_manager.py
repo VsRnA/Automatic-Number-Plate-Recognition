@@ -46,9 +46,12 @@ class WorkerManager:
                 recognition_service=self._recognition_service,
                 redis_producer=self._redis_producer,
                 frame_interval=self._settings.frame_interval,
-                confidence_threshold=self._settings.confidence_threshold,
                 reconnect_delay=self._settings.worker_reconnect_delay,
                 max_retries=self._settings.worker_max_retries,
+                tracker_stale_frames=self._settings.tracker_stale_frames,
+                tracker_fuzzy_distance=self._settings.tracker_fuzzy_distance,
+                tracker_min_iou=self._settings.tracker_min_iou,
+                tracker_min_readings=self._settings.tracker_min_readings,
             )
             self._threads[camera_id] = thread
             thread.start()

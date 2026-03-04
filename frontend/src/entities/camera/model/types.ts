@@ -13,12 +13,4 @@ export interface Camera {
   deletedAt: string | null
 }
 
-export type StreamStatus = 'idle' | 'running' | 'error' | 'loading'
-
-export interface StreamStatusResponse {
-  cameraId: string
-  status: StreamStatus
-  startedAt?: string
-  error?: string
-}
 

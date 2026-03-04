@@ -62,6 +62,7 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
 
         try:
             import base64
+            import time
             import cv2
             import numpy as np
 
@@ -73,22 +74,25 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
                     success=False, error="Failed to decode image"
                 )
 
-            result = self._recognition_service.process_frame(frame)
+            t0 = time.time()
+            detections = self._recognition_service.process_frame(frame)
+            processing_ms = str(int((time.time() - t0) * 1000))
+
             plates = [
                 recognition_pb2.PlateResult(
-                    plate_number=p.plate_number,
-                    confidence=p.confidence,
+                    plate_number=d.plate_text,
+                    confidence=d.ocr_confidence,
                     bounding_box=recognition_pb2.BoundingBox(
-                        x=p.bounding_box.x, y=p.bounding_box.y,
-                        width=p.bounding_box.width, height=p.bounding_box.height,
+                        x=d.plate.bbox.x, y=d.plate.bbox.y,
+                        width=d.plate.bbox.width, height=d.plate.bbox.height,
                     ),
                 )
-                for p in result.plates
+                for d in detections
             ]
             return recognition_pb2.TestRecognizeResponse(
                 success=True,
                 plates=plates,
-                processing_time_ms=result.processing_time_ms,
+                processing_time_ms=processing_ms,
             )
         except RecognitionError as e:
             logger.error(f"TestRecognize failed: {e}", exc_info=True)

@@ -6,35 +6,7 @@
   background-color: #f7f8fa;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 28px;
-  background-color: #fff;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.breadcrumbRoot {
-  color: #9ca3af;
-}
-
-.breadcrumbSep {
-  color: #d1d5db;
-}
-
-.breadcrumbCurrent {
-  color: #111827;
-  font-weight: 600;
-}
-
+/* ── Buttons ── */
 .btnPrimary {
   padding: 8px 16px;
   border: none;
@@ -44,6 +16,9 @@
   font-weight: 500;
   color: #fff;
   cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
 .btnPrimary:hover {
@@ -64,13 +39,14 @@
   font-weight: 500;
   color: #374151;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .btnOutline:hover {
   background-color: #f9fafb;
 }
 
-/* Modal */
+/* ── Modal ── */
 .modal {
   position: fixed;
   inset: 0;
@@ -109,6 +85,7 @@
   font-size: 18px;
   color: #9ca3af;
   cursor: pointer;
+  line-height: 1;
 }
 
 .form {
@@ -138,6 +115,8 @@
   color: #374151;
   background: #fff;
   outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
 }
 
 .input:focus {
@@ -157,6 +136,7 @@
   font-size: 13px;
   color: #6b7280;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .toggleActive {
@@ -180,61 +160,68 @@
   margin-top: 6px;
 }
 
-/* Content */
+/* ── Content ── */
 .content {
   padding: 24px 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
+/* ── Stat pills ── */
 .statsRow {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.statChip {
-  display: flex;
+.statPill {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1.5px solid #111827;
+  background: transparent;
+  white-space: nowrap;
 }
 
-.statChipLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+.statPillGreen {
+  border-color: #16a34a;
 }
 
-.statChipCount {
-  font-size: 15px;
-  font-weight: 700;
+.statPillGreen .statPillLabel,
+.statPillGreen .statPillCount {
+  color: #16a34a;
+}
+
+.statPillLabel {
+  font-size: 13.5px;
+  font-weight: 500;
   color: #111827;
 }
 
-.labelGreen {
-  color: #16a34a;
+.statPillCount {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
 }
 
-.countGreen {
-  color: #16a34a;
-}
-
+/* ── Toolbar ── */
 .toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .searchWrapper {
   position: relative;
-  width: 300px;
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
 }
 
 .searchIcon {
@@ -244,6 +231,7 @@
   transform: translateY(-50%);
   display: flex;
   align-items: center;
+  pointer-events: none;
 }
 
 .searchInput {
@@ -256,33 +244,36 @@
   background: #fff;
   outline: none;
   box-sizing: border-box;
-}
-
-.searchInput:focus {
-  border-color: #2563eb;
+  transition: border-color 0.15s;
 }
 
 .searchInput::placeholder {
   color: #9ca3af;
 }
 
+.searchInput:focus {
+  border-color: #2563eb;
+}
+
 .recordsCount {
   margin-left: auto;
   font-size: 13px;
   color: #9ca3af;
+  white-space: nowrap;
 }
 
-/* Table */
+/* ── Table ── */
 .tableWrapper {
   background-color: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 500px;
 }
 
 .theadRow {
@@ -441,4 +432,27 @@
   font-size: 13px;
   color: #dc2626;
   cursor: pointer;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .content {
+    padding: 18px 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 14px 16px;
+  }
+
+  .searchWrapper {
+    max-width: 100%;
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .recordsCount {
+    margin-left: 0;
+  }
 }

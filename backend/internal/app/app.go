@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure/database"
@@ -51,11 +52,8 @@ func (a *App) Run() error {
 	redisClient := infrastructure.NewRedisClient(cfg.RedisHost, cfg.RedisPort)
 	log.Printf("Redis client initialized at %s:%s", cfg.RedisHost, cfg.RedisPort)
 
-	ffmpegManager := infrastructure.NewFFmpegManager(cfg.HLSDir)
-	log.Printf("FFmpeg manager initialized, HLS dir: %s", cfg.HLSDir)
-
 	repositories := repository.NewRepository(db)
-	handlers := handler.NewHandler(*cfg, repositories, recognitionClient, redisClient, ffmpegManager)
+	handlers := handler.NewHandler(*cfg, repositories, recognitionClient)
 
 	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
 
@@ -81,6 +79,10 @@ func (a *App) Run() error {
 	)
 	go consumer.Start(workerCtx)
 
+	if recognitionClient != nil {
+		go restoreWorkers(recognitionClient, repositories.Camera)
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	<-quit
@@ -105,8 +107,44 @@ func (a *App) Run() error {
 		log.Printf("Error closing Redis client: %v", err)
 	}
 
-	ffmpegManager.StopAll()
-
 	log.Println("Server stopped")
 	return nil
+}
+
+func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo repository.ICameraRepository) {
+	const maxAttempts = 30
+	const retryInterval = 5 * time.Second
+
+	for i := 0; i < maxAttempts; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_, err := client.HealthCheck(ctx)
+		cancel()
+		if err == nil {
+			break
+		}
+		if i == maxAttempts-1 {
+			log.Printf("Recognition service not available after %d attempts, skipping worker restore", maxAttempts)
+			return
+		}
+		log.Printf("Waiting for recognition service to be ready (%d/%d)...", i+1, maxAttempts)
+		time.Sleep(retryInterval)
+	}
+
+	isEnabled := true
+	cameras, err := cameraRepo.List(&repository.CameraFilters{IsEnabled: &isEnabled, Limit: 1000})
+	if err != nil {
+		log.Printf("Warning: failed to list enabled cameras for worker restore: %v", err)
+		return
+	}
+
+	for _, cam := range cameras {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		resp, err := client.StartWorker(ctx, cam.Guid.String(), cam.StreamHd)
+		cancel()
+		if err != nil || !resp.Success {
+			log.Printf("Warning: failed to start worker for camera %s on startup: %v", cam.Guid, err)
+		} else {
+			log.Printf("Started worker for camera %s on startup", cam.Guid)
+		}
+	}
 }

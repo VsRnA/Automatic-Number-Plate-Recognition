@@ -3,7 +3,6 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
@@ -15,26 +14,19 @@ type Handler struct {
 	Camera             ICameraHandler
 	Recognition        IRecognitionHandler
 	TestRecognition    ITestRecognitionHandler
-	Stream             IStreamHandler
 	AccessPoint        IAccessPointHandler
 	RecognitionHistory IRecognitionHistoryHandler
 	cfg                config.Config
 }
 
-func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient, redisClient *redis.Client, ffmpegManager *infrastructure.FFmpegManager) *Handler {
+func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient) *Handler {
 	validate := validator.New()
 
 	return &Handler{
-		Plate:           NewPlateHandler(repo.Plate, validate),
-		Camera:          NewCameraHandler(repo.Camera, recognitionClient, validate),
-		Recognition:     NewRecognitionHandler(recognitionClient),
-		TestRecognition: NewTestRecognitionHandler(recognitionClient),
-		Stream: NewStreamHandler(
-			repo.Camera,
-			ffmpegManager,
-			redisClient,
-			cfg.RedisStream,
-		),
+		Plate:              NewPlateHandler(repo.Plate, validate),
+		Camera:             NewCameraHandler(repo.Camera, recognitionClient, validate),
+		Recognition:        NewRecognitionHandler(recognitionClient),
+		TestRecognition:    NewTestRecognitionHandler(recognitionClient),
 		AccessPoint:        NewAccessPointHandler(repo.AccessPoint, validate),
 		RecognitionHistory: NewRecognitionHistoryHandler(repo.Recognition),
 		cfg:                cfg,
@@ -64,12 +56,6 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			cameras.GET("/:id", h.Camera.GetCamera)
 			cameras.PUT("/:id", h.Camera.UpdateCamera)
 			cameras.DELETE("/:id", h.Camera.DeleteCamera)
-
-			cameras.POST("/:id/stream/start", h.Stream.StartStream)
-			cameras.DELETE("/:id/stream/stop", h.Stream.StopStream)
-			cameras.GET("/:id/stream/status", h.Stream.GetStreamStatus)
-			cameras.GET("/:id/stream/events", h.Stream.StreamEvents)
-			cameras.GET("/:id/hls/*file", h.Stream.ServeHLS)
 		}
 
 		accessPoints := api.Group("/access-points")

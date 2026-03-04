@@ -32,9 +32,10 @@ function AlertIcon() {
 interface VideoStreamProps {
   cameraId: string
   size: 'thumbnail' | 'full'
+  autoStart?: boolean
 }
 
-export function VideoStream({ cameraId, size }: VideoStreamProps) {
+export function VideoStream({ cameraId, size, autoStart }: VideoStreamProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   const [status, setStatus] = useState<StreamStatus>(HLS_SUPPORTED ? 'loading' : 'error')
@@ -44,12 +45,20 @@ export function VideoStream({ cameraId, size }: VideoStreamProps) {
     if (!HLS_SUPPORTED) return
     let cancelled = false
     cameraApi.stream.status(cameraId).then(res => {
-      if (!cancelled) setStatus(res.status)
+      if (!cancelled) {
+        if (res.status === 'idle' && autoStart) {
+          cameraApi.stream.start(cameraId)
+            .then(() => setStatus('running'))
+            .catch(() => setStatus('error'))
+        } else {
+          setStatus(res.status)
+        }
+      }
     }).catch(() => {
       if (!cancelled) setStatus('idle')
     })
     return () => { cancelled = true }
-  }, [cameraId])
+  }, [cameraId, autoStart])
 
   useEffect(() => {
     if (status !== 'running') return

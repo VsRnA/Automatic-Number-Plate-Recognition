@@ -67,11 +67,22 @@ function AccessPointIcon() {
   )
 }
 
+function TestIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M5 1H11V6L14 13H2L5 6V1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M5 1H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M6 9H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const NAV_MAIN = [
   { id: 'cameras', label: 'Камеры', icon: <CameraIcon /> },
   { id: 'plates', label: 'Номера', icon: <PlateIcon /> },
   { id: 'access-points', label: 'Точки доступа', icon: <AccessPointIcon /> },
   { id: 'history', label: 'История', icon: <HistoryIcon /> },
+  { id: 'test-recognition', label: 'Тест', icon: <TestIcon /> },
 ]
 
 const NAV_CONFIG = [
@@ -103,7 +114,7 @@ export function Sidebar({ activeItem = 'cameras', onNavigate }: SidebarProps) {
               onClick={() => onNavigate?.(item.id)}
             >
               <span className={styles.navIcon}>{item.icon}</span>
-              {item.label}
+              <span className={styles.navLabel}>{item.label}</span>
             </button>
           ))}
         </div>
@@ -117,7 +128,7 @@ export function Sidebar({ activeItem = 'cameras', onNavigate }: SidebarProps) {
               onClick={() => onNavigate?.(item.id)}
             >
               <span className={styles.navIcon}>{item.icon}</span>
-              {item.label}
+              <span className={styles.navLabel}>{item.label}</span>
             </button>
           ))}
         </div>

@@ -1,19 +1,7 @@
 import { useState } from 'react'
 import type { Camera } from '../model/types'
-import { VideoStream } from './VideoStream/VideoStream'
 import { formatDate } from '@/shared/lib'
 import styles from './CameraRow.module.css'
-
-function parseStream(url: string): { host: string; path: string } {
-  const withoutProtocol = url.replace(/^rtsp:\/\//, '')
-  const slashIdx = withoutProtocol.indexOf('/')
-  if (slashIdx < 0) return { host: withoutProtocol, path: '' }
-  return {
-    host: withoutProtocol.slice(0, slashIdx),
-    path: withoutProtocol.slice(slashIdx),
-  }
-}
-
 
 function TrashIcon() {
   return (
@@ -46,8 +34,6 @@ interface CameraRowProps {
 
 export function CameraRow({ camera, onClick, onDelete }: CameraRowProps) {
   const [confirming, setConfirming] = useState(false)
-  const sd = parseStream(camera.stream)
-  const hd = parseStream(camera.streamHd)
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -71,34 +57,21 @@ export function CameraRow({ camera, onClick, onDelete }: CameraRowProps) {
       onClick={() => !confirming && onClick?.(camera.guid)}
     >
       <td className={styles.nameCell}>
-        <div className={styles.cameraInfo}>
-          <div className={styles.thumbnailWrapper}>
-            <VideoStream cameraId={camera.guid} size="thumbnail" />
-          </div>
-          <div>
-            <div className={styles.cameraName}>{camera.name}</div>
-            <div className={styles.cameraMeta}>{sd.host}</div>
-          </div>
-        </div>
+        <div className={styles.cameraName}>{camera.name}</div>
       </td>
 
       <td className={styles.streamCell}>
-        <div className={styles.streamHost}>{sd.host}</div>
-        <div className={styles.streamPath}>{sd.path}</div>
+        <span className={styles.streamUrl}>{camera.stream}</span>
       </td>
 
       <td className={styles.streamCell}>
-        <div className={styles.streamHost}>{hd.host}</div>
-        <div className={styles.streamPath}>{hd.path}</div>
+        <span className={styles.streamUrl}>{camera.streamHd}</span>
       </td>
 
       <td className={styles.cell}>
-        <span className={camera.isEnabled ? styles.badgeActive : styles.badgeDisabled}>
-          <span
-            className={styles.badgeDot}
-            style={{ backgroundColor: camera.isEnabled ? '#22c55e' : '#9ca3af' }}
-          />
-          {camera.isEnabled ? 'АКТИВНА' : 'ОТКЛЮЧЕНА'}
+        <span className={camera.isEnabled ? styles.statusActive : styles.statusDisabled}>
+          <span className={styles.statusDot} />
+          {camera.isEnabled ? 'Активна' : 'Отключена'}
         </span>
       </td>
 

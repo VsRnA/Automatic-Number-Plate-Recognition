@@ -47,27 +47,19 @@ export function HistoryPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.breadcrumb}>
-          <span className={styles.breadcrumbRoot}>Система</span>
-          <span className={styles.breadcrumbSep}>/</span>
-          <span className={styles.breadcrumbCurrent}>История распознаваний</span>
-        </div>
-      </header>
-
       <div className={styles.content}>
         <div className={styles.statsRow}>
-          <div className={styles.statChip}>
-            <span className={styles.statChipLabel}>ПОКАЗАНО</span>
-            <span className={styles.statChipCount}>{records.length}</span>
+          <div className={styles.statPill}>
+            <span className={styles.statPillLabel}>Показано</span>
+            <span className={styles.statPillCount}>{records.length}</span>
           </div>
-          <div className={styles.statChip}>
-            <span className={`${styles.statChipLabel} ${styles.labelGreen}`}>ИЗВЕСТНЫЕ</span>
-            <span className={`${styles.statChipCount} ${styles.countGreen}`}>{records.filter(r => r.plateGuid !== null).length}</span>
+          <div className={`${styles.statPill} ${styles.statPillGreen}`}>
+            <span className={styles.statPillLabel}>Известные</span>
+            <span className={styles.statPillCount}>{records.filter(r => r.plateGuid !== null).length}</span>
           </div>
-          <div className={styles.statChip}>
-            <span className={`${styles.statChipLabel} ${styles.labelGray}`}>НЕИЗВЕСТНЫЕ</span>
-            <span className={`${styles.statChipCount} ${styles.countGray}`}>{records.filter(r => r.plateGuid === null).length}</span>
+          <div className={`${styles.statPill} ${styles.statPillGray}`}>
+            <span className={styles.statPillLabel}>Неизвестные</span>
+            <span className={styles.statPillCount}>{records.filter(r => r.plateGuid === null).length}</span>
           </div>
         </div>
 
