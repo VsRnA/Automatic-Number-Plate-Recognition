@@ -1,0 +1,166 @@
+.row {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.15s;
+}
+
+.row:hover {
+  background-color: #fafbfc;
+}
+
+.cell {
+  padding: 14px 16px;
+  vertical-align: middle;
+}
+
+.nameCell {
+  padding: 14px 16px;
+  min-width: 160px;
+  vertical-align: middle;
+}
+
+.cameraName {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.streamCell {
+  padding: 14px 16px;
+  max-width: 220px;
+  vertical-align: middle;
+}
+
+.streamUrl {
+  font-size: 13px;
+  color: #6b7280;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.statusActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #16a34a;
+  white-space: nowrap;
+}
+
+.statusDisabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+.accessPoint {
+  font-size: 13px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.dash {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.date {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.rowClickable {
+  cursor: pointer;
+}
+
+.rowClickable:hover {
+  background-color: #f5f7ff;
+}
+
+.actionCell {
+  padding: 14px 12px 14px 0;
+  vertical-align: middle;
+  width: 36px;
+  white-space: nowrap;
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  opacity: 0;
+}
+
+.row:hover .deleteBtn {
+  opacity: 1;
+}
+
+.deleteBtn:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.confirmRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirmYes {
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: none;
+  background-color: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+}
+
+.confirmYes:hover {
+  background-color: #fecaca;
+}
+
+.confirmNo {
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  background-color: #fff;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+}
+
+.confirmNo:hover {
+  background-color: #f9fafb;
+}

@@ -1,7 +1,14 @@
 package main
 
-import "github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/app"
+import (
+	"log"
+
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/app"
+)
 
 func main() {
-	app.Run()
+	application := app.New()
+	if err := application.Run(); err != nil {
+		log.Fatalf("Application error: %v", err)
+	}
 }

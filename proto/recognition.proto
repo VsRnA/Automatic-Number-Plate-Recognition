@@ -1,0 +1,183 @@
+syntax = "proto3";
+
+package recognition;
+
+option go_package = "github.com/VsRnA/Automatic-Number-Plate-Recognition/pkg/grpc/recognition";
+
+// RecognitionService provides automatic number plate recognition functionality
+service RecognitionService {
+  // Test methods
+  rpc HealthCheck(Empty) returns (HealthResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
+  rpc TestRecognize(TestRecognizeRequest) returns (TestRecognizeResponse);
+  rpc TestRecognizeVideo(TestVideoRequest) returns (TestVideoResponse);
+
+  // Production methods
+  rpc RecognizeFromStream(StreamRequest) returns (RecognizeResponse);
+  rpc StopStreamRecognition(StopStreamRecognitionRequest) returns (StopStreamRecognitionResponse);
+  rpc GetStreamRecognitionStatus(StreamRecognitionStatusRequest) returns (StreamRecognitionStatusResponse);
+
+  // Worker management
+  rpc StartWorker(StartWorkerRequest) returns (StartWorkerResponse);
+  rpc StopWorker(StopWorkerRequest) returns (StopWorkerResponse);
+  rpc GetWorkerStatus(GetWorkerStatusRequest) returns (GetWorkerStatusResponse);
+
+}
+
+// Empty message for requests without parameters
+message Empty {}
+
+// HealthResponse returns service health status
+message HealthResponse {
+  bool healthy = 1;
+  string version = 2;
+  string timestamp = 3;
+}
+
+// PingRequest for testing connectivity
+message PingRequest {
+  string message = 1;
+}
+
+// PingResponse echoes back the message
+message PingResponse {
+  string message = 1;
+  string timestamp = 2;
+}
+
+// TestRecognizeRequest for testing recognition without stream
+message TestRecognizeRequest {
+  string image_base64 = 1;
+  bool use_sample_image = 2;
+}
+
+// TestRecognizeResponse returns test recognition results
+message TestRecognizeResponse {
+  bool success = 1;
+  repeated PlateResult plates = 2;
+  string processing_time_ms = 3;
+  string error = 4;
+}
+
+// PlateResult represents a single recognized plate
+message PlateResult {
+  string plate_number = 1;
+  double confidence = 2;
+  BoundingBox bounding_box = 3;
+}
+
+// BoundingBox defines the location of detected plate
+message BoundingBox {
+  int32 x = 1;
+  int32 y = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+// StreamRequest to start stream recognition
+message StreamRequest {
+  string request_id = 1;
+  string stream = 2;
+  int32 frame_interval = 3;
+  double confidence_threshold = 4;
+}
+
+// RecognizeResponse for stream recognition start
+message RecognizeResponse {
+  bool success = 1;
+  string request_id = 2;
+  string message = 3;
+  string error = 4;
+}
+
+// StopStreamRecognitionRequest to stop stream recognition
+message StopStreamRecognitionRequest {
+  string request_id = 1;
+}
+
+// StopStreamRecognitionResponse confirms stop
+message StopStreamRecognitionResponse {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+}
+
+// StreamRecognitionStatusRequest to check stream recognition status
+message StreamRecognitionStatusRequest {
+  string request_id = 1;
+}
+
+// StreamRecognitionStatusResponse returns stream recognition status
+message StreamRecognitionStatusResponse {
+  string request_id = 1;
+  string status = 2;  // "running", "stopped", "error"
+  int64 frames_processed = 3;
+  int64 plates_detected = 4;
+  string started_at = 5;
+  string error = 6;
+}
+
+// Worker management messages
+message StartWorkerRequest {
+  string camera_id = 1;
+  string stream = 2;
+}
+
+message StartWorkerResponse {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+}
+
+message StopWorkerRequest {
+  string camera_id = 1;
+}
+
+message StopWorkerResponse {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+}
+
+message GetWorkerStatusRequest {
+  string camera_id = 1;
+}
+
+message GetWorkerStatusResponse {
+  string camera_id = 1;
+  string status = 2;  // "running", "stopped", "error"
+  string started_at = 3;
+  string error = 4;
+}
+
+// TestVideoRequest accepts raw video bytes for test recognition
+message TestVideoRequest {
+  bytes video_data = 1;
+  int32 frame_interval = 2;  // process every Nth frame (0 = use service default)
+  string camera_id = 3;      // optional: associate result with a camera for history recording
+}
+
+// TestVideoResponse returns all plates found in the video
+message TestVideoResponse {
+  bool success = 1;
+  repeated VideoPlateDetection detections = 2;
+  int32 total_frames_processed = 3;
+  string error = 4;
+}
+
+// VideoPlateDetection represents a plate found in a specific video frame
+message VideoPlateDetection {
+  string plate_number = 1;
+  double confidence = 2;
+  string screenshot_url = 3;
+  int32 frame_number = 4;
+}
+
+// DetectionEvent describes a plate detection (used in Redis Streams and SSE)
+message DetectionEvent {
+  string camera_id = 1;
+  string plate_number = 2;
+  double confidence = 3;
+  BoundingBox bounding_box = 4;
+  string timestamp = 5;
+}

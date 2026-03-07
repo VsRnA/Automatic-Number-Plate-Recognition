@@ -2,6 +2,12 @@
 CLAUDE.md
 CLAUDE*.md
 
+#ML models
+/service-recognition/models
+
+#Video
+/video
+
 # Binaries
 *.exe
 *.exe~
@@ -31,7 +37,6 @@ build-errors.log
 
 # Environment & secrets
 .env
-.env.*
 *.pem
 *.key
 credentials.json
@@ -58,3 +63,36 @@ postgres_data/
 # Coverage
 coverage.out
 coverage.html
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+venv/
+.venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ML Models (large files)
+*.pt
+*.pth
+*.onnx
+*.weights
+
+# Local data (Docker volumes)
+redis_data/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
