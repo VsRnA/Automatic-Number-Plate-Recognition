@@ -6,6 +6,7 @@ import (
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/middleware"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 )
 
@@ -16,7 +17,9 @@ type Handler struct {
 	TestRecognition    ITestRecognitionHandler
 	AccessPoint        IAccessPointHandler
 	RecognitionHistory IRecognitionHistoryHandler
+	ApiToken           IApiTokenHandler
 	cfg                config.Config
+	tokenRepo          repository.IApiTokenRepository
 }
 
 func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient) *Handler {
@@ -29,7 +32,9 @@ func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClien
 		TestRecognition:    NewTestRecognitionHandler(recognitionClient),
 		AccessPoint:        NewAccessPointHandler(repo.AccessPoint, validate),
 		RecognitionHistory: NewRecognitionHistoryHandler(repo.Recognition),
+		ApiToken:           NewApiTokenHandler(repo.ApiToken, validate),
 		cfg:                cfg,
+		tokenRepo:          repo.ApiToken,
 	}
 }
 
@@ -39,10 +44,12 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	router.Use(gin.Recovery())
 
 	api := router.Group("/api/v1")
+	api.Use(middleware.Auth(h.cfg, h.tokenRepo))
 	{
 		plates := api.Group("/plates")
 		{
 			plates.POST("", h.Plate.CreatePlate)
+			plates.POST("/import", h.Plate.ImportPlates)
 			plates.GET("", h.Plate.ListPlates)
 			plates.GET("/:id", h.Plate.GetPlate)
 			plates.PUT("/:id", h.Plate.UpdatePlate)
@@ -73,11 +80,19 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			recognition.POST("/ping", h.Recognition.Ping)
 			recognition.POST("/test", h.Recognition.TestRecognize)
 			recognition.GET("/list", h.RecognitionHistory.ListHistory)
+			recognition.GET("/export", h.RecognitionHistory.ExportHistoryCSV)
 		}
 
 		test := api.Group("/test")
 		{
 			test.POST("/recognize-video", h.TestRecognition.RecognizeVideo)
+		}
+
+		tokens := api.Group("/tokens")
+		{
+			tokens.POST("", h.ApiToken.CreateToken)
+			tokens.GET("", h.ApiToken.ListTokens)
+			tokens.DELETE("/:id", h.ApiToken.DeleteToken)
 		}
 	}
 

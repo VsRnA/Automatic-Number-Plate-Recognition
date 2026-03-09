@@ -9,6 +9,7 @@ type Repository struct {
 	Camera       ICameraRepository
 	AccessPoint  IAccessPointRepository
 	Recognition  IRecognitionHistoryRepository
+	ApiToken     IApiTokenRepository
 }
 
 func NewRepository(db *gorm.DB) *Repository {
@@ -17,5 +18,6 @@ func NewRepository(db *gorm.DB) *Repository {
 		Camera:      NewCameraRepository(db),
 		AccessPoint: NewAccessPointRepository(db),
 		Recognition: NewRecognitionHistoryRepository(db),
+		ApiToken:    NewApiTokenRepository(db),
 	}
 }

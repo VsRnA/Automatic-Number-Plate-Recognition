@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -16,6 +20,7 @@ import (
 
 type IPlateHandler interface {
 	CreatePlate(c *gin.Context)
+	ImportPlates(c *gin.Context)
 	GetPlate(c *gin.Context)
 	UpdatePlate(c *gin.Context)
 	DeletePlate(c *gin.Context)
@@ -218,6 +223,86 @@ func (h *PlateHandler) ListPlates(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, plates)
+}
+
+// ImportPlates accepts a multipart CSV file with columns:
+// number, region, accessType, validUntil (RFC3339, optional), comment, isEnabled (true/false, optional)
+func (h *PlateHandler) ImportPlates(c *gin.Context) {
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("file is required"))
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.TrimLeadingSpace = true
+
+	// skip header row
+	if _, err := reader.Read(); err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("failed to read CSV header"))
+		return
+	}
+
+	var created, skipped int
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue
+		}
+		if len(row) < 3 {
+			skipped++
+			continue
+		}
+
+		number := strings.TrimSpace(row[0])
+		region := ""
+		if len(row) > 1 {
+			region = strings.TrimSpace(row[1])
+		}
+		accessType := strings.TrimSpace(row[2])
+		if number == "" || accessType == "" {
+			skipped++
+			continue
+		}
+
+		// skip if already exists
+		existing, _ := h.plate.repo.Get(&repository.PlateFilters{Number: &number})
+		if existing != nil {
+			skipped++
+			continue
+		}
+
+		plate := &model.Plate{
+			Number:     number,
+			Region:     region,
+			AccessType: accessType,
+			IsEnabled:  true,
+		}
+
+		if len(row) > 3 && strings.TrimSpace(row[3]) != "" {
+			if t, err := time.Parse(time.RFC3339, strings.TrimSpace(row[3])); err == nil {
+				plate.ValidUntil = &t
+			}
+		}
+		if len(row) > 4 {
+			plate.Comment = strings.TrimSpace(row[4])
+		}
+		if len(row) > 5 {
+			plate.IsEnabled = strings.TrimSpace(row[5]) != "false"
+		}
+
+		if err := h.plate.repo.Create(plate); err == nil {
+			created++
+		} else {
+			skipped++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"created": created, "skipped": skipped})
 }
 
 func (h *PlateHandler) validateRequestBody(c *gin.Context, req any) error {

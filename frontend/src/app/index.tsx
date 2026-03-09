@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import './styles/index.css'
 import { Sidebar } from '@/widgets/sidebar'
-import { CamerasPage, CameraPage, CameraAddPage, PlatesPage, AccessPointsPage, HistoryPage, TestRecognitionPage } from '@/pages'
+import { CamerasPage, CameraPage, CameraAddPage, PlatesPage, AccessPointsPage, HistoryPage, TestRecognitionPage, ApiTokensPage } from '@/pages'
 import { ToastProvider, Toaster } from '@/shared/ui'
 
-type SidebarPage = 'cameras' | 'plates' | 'access-points' | 'history' | 'test-recognition'
+type SidebarPage = 'cameras' | 'plates' | 'access-points' | 'history' | 'test-recognition' | 'api'
 type Route =
   | { page: SidebarPage }
   | { page: 'camera'; id: string }
   | { page: 'camera-add' }
 
-const SIDEBAR_PAGES: SidebarPage[] = ['cameras', 'plates', 'access-points', 'history', 'test-recognition']
+const SIDEBAR_PAGES: SidebarPage[] = ['cameras', 'plates', 'access-points', 'history', 'test-recognition', 'api']
 
 function App() {
   const [route, setRoute] = useState<Route>({ page: 'cameras' })
@@ -56,6 +56,8 @@ function App() {
         {route.page === 'history' && <HistoryPage />}
 
         {route.page === 'test-recognition' && <TestRecognitionPage />}
+
+        {route.page === 'api' && <ApiTokensPage />}
       </div>
       <Toaster />
     </ToastProvider>

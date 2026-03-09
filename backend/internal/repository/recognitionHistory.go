@@ -13,6 +13,7 @@ type RecognitionHistoryFilters struct {
 	CameraGuid    *uuid.UUID
 	AccessPointId *int
 	PlateNumber   *string
+	AccessGranted *bool
 	DateFrom      *time.Time
 	DateTo        *time.Time
 	Limit         int
@@ -48,6 +49,9 @@ func (r *RecognitionHistoryRepository) List(filters *RecognitionHistoryFilters) 
 		}
 		if filters.PlateNumber != nil && *filters.PlateNumber != "" {
 			query = query.Where("\"plateNumber\" ILIKE ?", "%"+*filters.PlateNumber+"%")
+		}
+		if filters.AccessGranted != nil {
+			query = query.Where("\"accessGranted\" = ?", *filters.AccessGranted)
 		}
 		if filters.DateFrom != nil {
 			query = query.Where("\"occurredAt\" >= ?", *filters.DateFrom)
