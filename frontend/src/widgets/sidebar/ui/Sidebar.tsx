@@ -28,26 +28,6 @@ function HistoryIcon() {
   )
 }
 
-function TruckIcon() {
-  return (
-    <svg width="18" height="13" viewBox="0 0 18 13" fill="none">
-      <path d="M1 1H11V10H1V1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M11 4H14.5L17 7V10H11V4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <circle cx="3.5" cy="11.5" r="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="14" cy="11.5" r="1.5" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
-
-function UserIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M2 14C2 11.2386 4.68629 9 8 9C11.3137 9 14 11.2386 14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 function KeyIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
