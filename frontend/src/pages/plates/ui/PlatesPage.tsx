@@ -160,7 +160,6 @@ export function PlatesPage() {
               value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <span className={styles.recordsCount}>{filtered.length} записей</span>
-          <button className={styles.btnPrimary} onClick={() => setShowAdd(true)}>+ Добавить номер</button>
         </div>
 
         <div className={styles.tableWrapper}>
@@ -194,6 +193,10 @@ export function PlatesPage() {
               </tbody>
             </table>
           )}
+        </div>
+
+        <div className={styles.tableFooter}>
+          <button className={styles.addLink} onClick={() => setShowAdd(true)}>+ Добавить номер</button>
         </div>
       </div>
     </div>

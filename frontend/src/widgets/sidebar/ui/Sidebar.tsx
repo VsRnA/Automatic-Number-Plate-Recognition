@@ -86,8 +86,6 @@ const NAV_MAIN = [
 ]
 
 const NAV_CONFIG = [
-  { id: 'transport', label: 'Спецтранспорт', icon: <TruckIcon /> },
-  { id: 'users', label: 'Пользователи', icon: <UserIcon /> },
   { id: 'api', label: 'API токены', icon: <KeyIcon /> },
 ]
 
