@@ -101,7 +101,6 @@
   white-space: nowrap;
 }
 
-/* ── Responsive ── */
 @media (max-width: 900px) {
   .sidebar {
     width: 180px;

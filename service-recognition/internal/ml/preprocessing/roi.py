@@ -9,12 +9,6 @@ def extract_roi(
     w_pct: float,
     h_pct: float,
 ) -> tuple[np.ndarray, tuple[int, int]]:
-    """
-    Extract region of interest from frame.
-
-    Returns (roi_image, (offset_x, offset_y)) for coordinate remapping.
-    If disabled, returns the original frame with (0, 0) offset.
-    """
     if not enabled:
         return frame, (0, 0)
 

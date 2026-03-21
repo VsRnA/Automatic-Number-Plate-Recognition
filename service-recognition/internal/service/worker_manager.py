@@ -52,6 +52,7 @@ class WorkerManager:
                 tracker_fuzzy_distance=self._settings.tracker_fuzzy_distance,
                 tracker_min_iou=self._settings.tracker_min_iou,
                 tracker_min_readings=self._settings.tracker_min_readings,
+                tracker_cooldown_seconds=self._settings.tracker_cooldown_seconds,
             )
             self._threads[camera_id] = thread
             thread.start()

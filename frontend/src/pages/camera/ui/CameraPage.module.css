@@ -7,7 +7,7 @@
   min-width: 0;
 }
 
-/* ── Content ── */
+
 .content {
   padding: 24px 28px;
   flex: 1;
@@ -16,7 +16,7 @@
   gap: 16px;
 }
 
-/* ── Top bar (back + action) ── */
+
 .topBar {
   display: flex;
   align-items: center;
@@ -38,17 +38,17 @@
   color: #374151;
 }
 
-/* ── View layout ── */
+
 .viewWrapper {
   max-width: 760px;
 }
 
-/* ── Edit form wrapper ── */
+
 .editWrapper {
   max-width: 760px;
 }
 
-/* ── Card ── */
+
 .card {
   background-color: #fff;
   border: 1px solid #e5e7eb;
@@ -128,7 +128,7 @@
   gap: 24px;
 }
 
-/* ── Info view ── */
+
 .section {
   display: flex;
   flex-direction: column;
@@ -167,7 +167,7 @@
   word-break: break-all;
 }
 
-/* ── Edit form ── */
+
 .form {
   padding: 24px;
   display: flex;
@@ -303,7 +303,7 @@
   cursor: not-allowed;
 }
 
-/* ── States ── */
+
 .stateMessage {
   padding: 40px 24px;
   text-align: center;
@@ -318,7 +318,7 @@
   color: #dc2626;
 }
 
-/* ── Responsive ── */
+
 @media (max-width: 900px) {
   .content {
     padding: 18px 20px;

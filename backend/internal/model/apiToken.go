@@ -35,7 +35,7 @@ type ApiTokenResponse struct {
 
 type CreateApiTokenResponse struct {
 	ID          uuid.UUID `json:"id"`
-	Token       string    `json:"token"` // returned only once on creation
+	Token       string    `json:"token"`
 	TokenPrefix string    `json:"tokenPrefix"`
 	Description string    `json:"description"`
 	IsActive    bool      `json:"isActive"`

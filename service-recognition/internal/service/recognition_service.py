@@ -1,5 +1,6 @@
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import cv2
@@ -57,7 +58,6 @@ class RecognitionService:
         self._plate_min_height = plate_min_height
 
     def process_frame(self, frame: np.ndarray) -> list[FrameDetection]:
-        """Run full pipeline on a single frame. Returns list of valid FrameDetection."""
         roi, (offset_x, offset_y) = extract_roi(
             frame,
             enabled=self._roi_enabled,
@@ -67,10 +67,12 @@ class RecognitionService:
             h_pct=self._roi_h_percent,
         )
 
-        raw_vehicles = self._vehicle_detector.detect(roi)
-        raw_plates = self._plate_detector.detect(roi)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_vehicles = executor.submit(self._vehicle_detector.detect, roi)
+            future_plates = executor.submit(self._plate_detector.detect, roi)
+            raw_vehicles = future_vehicles.result()
+            raw_plates = future_plates.result()
 
-        # Filter plates by confidence threshold
         filtered_plates = [p for p in raw_plates if p.confidence >= self._confidence_threshold]
         logger.debug(
             f"process_frame: {len(raw_vehicles)} vehicles, "
@@ -80,7 +82,6 @@ class RecognitionService:
         if not filtered_plates:
             return []
 
-        # Remap detections from ROI coords to full-frame coords
         vehicle_detections = [
             VehicleDetection(
                 bbox=BoundingBox(
@@ -153,11 +154,9 @@ class RecognitionService:
         number_crop: np.ndarray,
         ocr_text: str,
     ) -> None:
-        """Save rejected detection to *_reject/ folders."""
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
 
-            # number_reject — processed OCR crop with border and label
             h, w = number_crop.shape[:2]
             bordered = number_crop.copy()
             cv2.rectangle(bordered, (0, 0), (w - 1, h - 1), (0, 0, 255), 2)
@@ -185,7 +184,6 @@ class RecognitionService:
                     content_type="image/jpeg",
                 )
 
-            # plate_reject
             fh, fw = frame.shape[:2]
             pad = 10
             px1 = max(0, plate_det.bbox.x - pad)
@@ -207,7 +205,6 @@ class RecognitionService:
                         content_type="image/jpeg",
                     )
 
-            # car_reject
             if vehicle is not None:
                 vb = vehicle.bbox
                 cx = vb.x + vb.width // 2
@@ -241,6 +238,8 @@ class RecognitionService:
         frame: np.ndarray,
         plate_result: PlateResult,
         plate_bbox: BoundingBox,
+        camera_id: str = "",
+        event_id: str = "",
     ) -> str | None:
         annotated = annotate_plates(frame, [plate_result])
 
@@ -260,13 +259,14 @@ class RecognitionService:
         if not ok:
             raise RecognitionError("JPEG encode failed")
 
+        prefix = f"{camera_id}/{plate_result.plate_number}/{event_id}" if camera_id and event_id else plate_result.plate_number
         return self._s3.upload_file(
             file_data=buffer.tobytes(),
-            file_name=f"{plate_result.plate_number}/number.jpg",
+            file_name=f"{prefix}/number.jpg",
             content_type="image/jpeg",
         )
 
-    def save_car_crop(self, frame: np.ndarray, bbox: BoundingBox, plate_number: str) -> str | None:
+    def save_car_crop(self, frame: np.ndarray, bbox: BoundingBox, plate_number: str, camera_id: str = "", event_id: str = "") -> str | None:
         h, w = frame.shape[:2]
         cx = bbox.x + bbox.width // 2
         cy = bbox.y + bbox.height // 2
@@ -292,13 +292,14 @@ class RecognitionService:
         if not ok:
             return None
 
+        prefix = f"{camera_id}/{plate_number}/{event_id}" if camera_id and event_id else plate_number
         return self._s3.upload_file(
             file_data=buffer.tobytes(),
-            file_name=f"{plate_number}/car.jpg",
+            file_name=f"{prefix}/car.jpg",
             content_type="image/jpeg",
         )
 
-    def save_plate_crop(self, frame: np.ndarray, bbox: BoundingBox, plate_number: str) -> str | None:
+    def save_plate_crop(self, frame: np.ndarray, bbox: BoundingBox, plate_number: str, camera_id: str = "", event_id: str = "") -> str | None:
         h, w = frame.shape[:2]
         pad = 10
         x1 = max(0, bbox.x - pad)
@@ -320,8 +321,9 @@ class RecognitionService:
         if not ok:
             return None
 
+        prefix = f"{camera_id}/{plate_number}/{event_id}" if camera_id and event_id else plate_number
         return self._s3.upload_file(
             file_data=buffer.tobytes(),
-            file_name=f"{plate_number}/plate.jpg",
+            file_name=f"{prefix}/plate.jpg",
             content_type="image/jpeg",
         )

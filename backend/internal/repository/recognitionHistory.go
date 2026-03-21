@@ -22,6 +22,7 @@ type RecognitionHistoryFilters struct {
 
 type IRecognitionHistoryRepository interface {
 	Create(h *model.RecognitionHistory) error
+	Update(h *model.RecognitionHistory) error
 	List(filters *RecognitionHistoryFilters) ([]model.RecognitionHistory, error)
 }
 
@@ -35,6 +36,10 @@ func NewRecognitionHistoryRepository(db *gorm.DB) IRecognitionHistoryRepository 
 
 func (r *RecognitionHistoryRepository) Create(h *model.RecognitionHistory) error {
 	return r.db.Create(h).Error
+}
+
+func (r *RecognitionHistoryRepository) Update(h *model.RecognitionHistory) error {
+	return r.db.Save(h).Error
 }
 
 func (r *RecognitionHistoryRepository) List(filters *RecognitionHistoryFilters) ([]model.RecognitionHistory, error) {

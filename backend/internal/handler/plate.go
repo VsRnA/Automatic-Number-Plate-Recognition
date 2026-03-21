@@ -225,8 +225,6 @@ func (h *PlateHandler) ListPlates(c *gin.Context) {
 	c.JSON(http.StatusOK, plates)
 }
 
-// ImportPlates accepts a multipart CSV file with columns:
-// number, region, accessType, validUntil (RFC3339, optional), comment, isEnabled (true/false, optional)
 func (h *PlateHandler) ImportPlates(c *gin.Context) {
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
@@ -238,7 +236,6 @@ func (h *PlateHandler) ImportPlates(c *gin.Context) {
 	reader := csv.NewReader(file)
 	reader.TrimLeadingSpace = true
 
-	// skip header row
 	if _, err := reader.Read(); err != nil {
 		exception.HttpResponseException(c, exception.RequestValidationError("failed to read CSV header"))
 		return
@@ -269,7 +266,6 @@ func (h *PlateHandler) ImportPlates(c *gin.Context) {
 			continue
 		}
 
-		// skip if already exists
 		existing, _ := h.plate.repo.Get(&repository.PlateFilters{Number: &number})
 		if existing != nil {
 			skipped++

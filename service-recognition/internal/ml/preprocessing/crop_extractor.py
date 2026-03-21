@@ -10,7 +10,6 @@ def extract_plate_crop(
     min_w: int = 128,
     min_h: int = 32,
 ) -> np.ndarray:
-    """Expand bbox to min size, clamp to frame, extract and return crop."""
     expanded = expand_to_min_size(bbox, frame.shape, min_w=min_w, min_h=min_h)
     x1, y1 = expanded.x, expanded.y
     x2 = expanded.x + expanded.width
