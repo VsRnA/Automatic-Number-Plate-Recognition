@@ -13,7 +13,6 @@
   gap: 18px;
 }
 
-/* Upload card */
 .uploadCard {
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -96,7 +95,6 @@
   cursor: not-allowed;
 }
 
-/* Results */
 .resultsCard {
   background: #fff;
   border: 1px solid #e5e7eb;

@@ -8,7 +8,7 @@ export interface ApiToken {
 }
 
 export interface CreateApiTokenResponse extends ApiToken {
-  token: string // returned only once on creation
+  token: string 
 }
 
 export interface CreateApiTokenDto {

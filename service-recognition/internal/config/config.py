@@ -27,26 +27,23 @@ class Settings(BaseSettings):
     worker_reconnect_delay: int = 5
     worker_max_retries: int = 3
 
-    # ROI settings
     roi_enabled: bool = False
-    roi_x_percent: float = 0.1   # left margin (10%)
-    roi_y_percent: float = 0.2   # top margin (20%)
-    roi_w_percent: float = 0.8   # width (80%)
-    roi_h_percent: float = 0.6   # height (60%) — central strip
+    roi_x_percent: float = 0.1
+    roi_y_percent: float = 0.2
+    roi_w_percent: float = 0.8
+    roi_h_percent: float = 0.6
 
-    # Vehicle detector
-    vehicle_detector_model: str = "yolov8n"   # downloads COCO pretrained automatically
+    vehicle_detector_model: str = "yolov8n"
     vehicle_detector_conf: float = 0.3
     vehicle_detector_imgsz: int = 640
-    vehicle_classes: list[int] = [2, 3, 5, 7]  # car, motorcycle, bus, truck
+    vehicle_classes: list[int] = [2, 3, 5, 7]
 
-    # Tracker settings
-    tracker_stale_frames: int = 5
+    tracker_stale_frames: int = 15
     tracker_fuzzy_distance: int = 1
     tracker_min_iou: float = 0.3
-    tracker_min_readings: int = 1
+    tracker_min_readings: int = 3
+    tracker_cooldown_seconds: float = 30.0
 
-    # Plate min size before OCR
     plate_min_width: int = 128
     plate_min_height: int = 32
 

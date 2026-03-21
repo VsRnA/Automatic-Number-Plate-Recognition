@@ -20,7 +20,7 @@ class VehicleDetector:
         self._model = YOLO(model)
         self._conf = conf
         self._imgsz = imgsz
-        self._classes = classes or [2, 3, 5, 7]  # car, motorcycle, bus, truck
+        self._classes = classes or [2, 3, 5, 7]
         logger.info(
             f"VehicleDetector: loaded '{model}', conf={conf}, imgsz={imgsz}, classes={self._classes}"
         )

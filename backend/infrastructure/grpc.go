@@ -20,7 +20,6 @@ func NewRecognitionClient(host, port string) (*RecognitionClient, error) {
 	conn, err := grpc.NewClient(
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		// Увеличиваем лимит для передачи видеофайлов (256 MB)
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallSendMsgSize(256*1024*1024),
 			grpc.MaxCallRecvMsgSize(256*1024*1024),

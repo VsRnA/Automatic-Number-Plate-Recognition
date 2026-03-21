@@ -9,7 +9,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// MessageHandler обрабатывает сырой payload из Redis Stream.
 type MessageHandler interface {
 	Handle(ctx context.Context, data []byte) error
 }
@@ -88,7 +87,6 @@ func (c *RedisConsumer) poll(ctx context.Context) {
 
 			if err := c.handler.Handle(ctx, data); err != nil {
 				log.Printf("RedisConsumer: handler error for message %s: %v", msg.ID, err)
-				// ACK даже при ошибке, чтобы не зависнуть на одном сообщении.
 			}
 			c.ack(ctx, msg.ID)
 		}

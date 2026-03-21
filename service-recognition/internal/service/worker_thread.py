@@ -2,6 +2,7 @@ import logging
 import socket
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
@@ -29,6 +30,7 @@ class WorkerThread(threading.Thread):
         tracker_fuzzy_distance: int = 1,
         tracker_min_iou: float = 0.3,
         tracker_min_readings: int = 2,
+        tracker_cooldown_seconds: float = 30.0,
     ):
         super().__init__(daemon=True)
         self.worker = worker
@@ -46,6 +48,7 @@ class WorkerThread(threading.Thread):
             fuzzy_distance=tracker_fuzzy_distance,
             min_iou=tracker_min_iou,
             min_readings=tracker_min_readings,
+            cooldown_seconds=tracker_cooldown_seconds,
         )
 
     def run(self):
@@ -144,6 +147,9 @@ class WorkerThread(threading.Thread):
             )
             return
 
+        camera_id = self.worker.camera_id
+        event_id = str(uuid.uuid4())
+
         plate_result = PlateResult(
             plate_number=confirmed.plate_text,
             confidence=confirmed.confidence,
@@ -155,28 +161,28 @@ class WorkerThread(threading.Thread):
         plate_crop_url: str | None = None
 
         try:
-            screenshot_url = self.recognition_service.save_screenshot(frame, plate_result, plate_bbox)
+            screenshot_url = self.recognition_service.save_screenshot(frame, plate_result, plate_bbox, camera_id, event_id)
         except Exception:
-            logger.warning(f"Screenshot save failed for camera {self.worker.camera_id}")
+            logger.warning(f"Screenshot save failed for camera {camera_id}")
 
         if vehicle_bbox is not None:
             try:
-                car_crop_url = self.recognition_service.save_car_crop(frame, vehicle_bbox, confirmed.plate_text)
+                car_crop_url = self.recognition_service.save_car_crop(frame, vehicle_bbox, confirmed.plate_text, camera_id, event_id)
             except Exception:
-                logger.warning(f"Car crop save failed for camera {self.worker.camera_id}")
+                logger.warning(f"Car crop save failed for camera {camera_id}")
 
         try:
-            plate_crop_url = self.recognition_service.save_plate_crop(frame, plate_bbox, confirmed.plate_text)
+            plate_crop_url = self.recognition_service.save_plate_crop(frame, plate_bbox, confirmed.plate_text, camera_id, event_id)
         except Exception:
-            logger.warning(f"Plate crop save failed for camera {self.worker.camera_id}")
+            logger.warning(f"Plate crop save failed for camera {camera_id}")
 
         logger.info(
-            f"Camera {self.worker.camera_id}: confirmed plate '{confirmed.plate_text}' "
+            f"Camera {camera_id}: confirmed plate '{confirmed.plate_text}' "
             f"(conf={confirmed.confidence:.2f}), screenshot={screenshot_url}"
         )
 
         self.redis_producer.send_recognition_result(
-            camera_id=self.worker.camera_id,
+            camera_id=camera_id,
             plates=[{
                 "plate_number": confirmed.plate_text,
                 "confidence": confirmed.confidence,

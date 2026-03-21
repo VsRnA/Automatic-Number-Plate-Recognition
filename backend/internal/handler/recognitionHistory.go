@@ -54,7 +54,6 @@ func (h *RecognitionHistoryHandler) ListHistory(c *gin.Context) {
 
 func (h *RecognitionHistoryHandler) ExportHistoryCSV(c *gin.Context) {
 	filters := h.parseFilters(c)
-	// no limit for export
 
 	records, err := h.repo.List(filters)
 	if err != nil {
