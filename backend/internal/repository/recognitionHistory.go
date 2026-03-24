@@ -13,6 +13,7 @@ type RecognitionHistoryFilters struct {
 	CameraGuid    *uuid.UUID
 	AccessPointId *int
 	PlateNumber   *string
+	AccessGranted *bool
 	DateFrom      *time.Time
 	DateTo        *time.Time
 	Limit         int
@@ -21,6 +22,7 @@ type RecognitionHistoryFilters struct {
 
 type IRecognitionHistoryRepository interface {
 	Create(h *model.RecognitionHistory) error
+	Update(h *model.RecognitionHistory) error
 	List(filters *RecognitionHistoryFilters) ([]model.RecognitionHistory, error)
 }
 
@@ -36,6 +38,10 @@ func (r *RecognitionHistoryRepository) Create(h *model.RecognitionHistory) error
 	return r.db.Create(h).Error
 }
 
+func (r *RecognitionHistoryRepository) Update(h *model.RecognitionHistory) error {
+	return r.db.Save(h).Error
+}
+
 func (r *RecognitionHistoryRepository) List(filters *RecognitionHistoryFilters) ([]model.RecognitionHistory, error) {
 	query := r.db.Model(&model.RecognitionHistory{}).Order("\"occurredAt\" DESC")
 
@@ -48,6 +54,9 @@ func (r *RecognitionHistoryRepository) List(filters *RecognitionHistoryFilters) 
 		}
 		if filters.PlateNumber != nil && *filters.PlateNumber != "" {
 			query = query.Where("\"plateNumber\" ILIKE ?", "%"+*filters.PlateNumber+"%")
+		}
+		if filters.AccessGranted != nil {
+			query = query.Where("\"accessGranted\" = ?", *filters.AccessGranted)
 		}
 		if filters.DateFrom != nil {
 			query = query.Where("\"occurredAt\" >= ?", *filters.DateFrom)

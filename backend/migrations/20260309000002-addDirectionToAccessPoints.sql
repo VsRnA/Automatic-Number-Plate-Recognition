@@ -1,0 +1,2 @@
+ALTER TABLE "accessPoints"
+    ADD COLUMN IF NOT EXISTS "direction" VARCHAR(20) NOT NULL DEFAULT 'both';

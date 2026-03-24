@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 
@@ -31,10 +32,6 @@ def select_best_reading(
     readings: list[tuple[str, float]],
     fuzzy_distance: int,
 ) -> tuple[str, float] | None:
-    """
-    Group readings by fuzzy similarity (Levenshtein <= fuzzy_distance).
-    Pick the largest group; within it, return the reading with highest confidence.
-    """
     if not readings:
         return None
 
@@ -53,8 +50,16 @@ def select_best_reading(
             groups.append([(text, conf)])
 
     largest = max(groups, key=len)
-    best_text, best_conf = max(largest, key=lambda r: r[1])
-    return best_text, best_conf
+
+    vote_counts: dict[str, int] = {}
+    vote_best_conf: dict[str, float] = {}
+    for text, conf in largest:
+        vote_counts[text] = vote_counts.get(text, 0) + 1
+        if conf > vote_best_conf.get(text, -1.0):
+            vote_best_conf[text] = conf
+
+    best_text = max(vote_counts, key=lambda t: (vote_counts[t], vote_best_conf[t]))
+    return best_text, vote_best_conf[best_text]
 
 
 @dataclass
@@ -67,6 +72,7 @@ class Track:
     best_vehicle_bbox: BoundingBox | None = None
     best_plate_bbox: BoundingBox | None = None
     frames_since_seen: int = 0
+    published: bool = False
 
 
 @dataclass
@@ -85,23 +91,21 @@ class Tracker:
         fuzzy_distance: int = 1,
         min_iou: float = 0.3,
         min_readings: int = 2,
+        cooldown_seconds: float = 30.0,
     ):
         self._stale_frames = stale_frames
         self._fuzzy_distance = fuzzy_distance
         self._min_iou = min_iou
         self._min_readings = min_readings
+        self._cooldown_seconds = cooldown_seconds
         self._tracks: list[Track] = []
+        self._last_published: dict[str, float] = {}
 
     def update(self, detections: list[FrameDetection]) -> list[ConfirmedDetection]:
-        """
-        Update tracker with new frame detections.
-        Returns list of ConfirmedDetections for tracks that went stale this frame.
-        """
-        # Age all tracks
         for track in self._tracks:
             track.frames_since_seen += 1
 
-        # Match each detection to an existing track
+        confirmed: list[ConfirmedDetection] = []
         matched_track_ids: set[str] = set()
         for det in detections:
             track = self._find_matching_track(det, matched_track_ids)
@@ -119,19 +123,29 @@ class Tracker:
                 )
                 new_track.readings.append((det.plate_text, det.ocr_confidence))
                 self._tracks.append(new_track)
+                track = new_track
 
-        # Publish and remove stale tracks
-        confirmed: list[ConfirmedDetection] = []
+            if not track.published:
+                result = self._try_confirm_early(track)
+                if result is not None:
+                    track.published = True
+                    confirmed.append(result)
+                    logger.info(
+                        f"Tracker: early confirmed '{result.plate_text}' "
+                        f"({len(track.readings)} readings)"
+                    )
+
         still_alive: list[Track] = []
         for track in self._tracks:
             if track.frames_since_seen > self._stale_frames:
-                result = self._try_confirm(track)
-                if result is not None:
-                    confirmed.append(result)
-                    logger.info(
-                        f"Tracker: confirmed stale track '{result.plate_text}' "
-                        f"({len(track.readings)} readings)"
-                    )
+                if not track.published:
+                    result = self._try_confirm(track)
+                    if result is not None:
+                        confirmed.append(result)
+                        logger.info(
+                            f"Tracker: confirmed stale track '{result.plate_text}' "
+                            f"({len(track.readings)} readings)"
+                        )
             else:
                 still_alive.append(track)
         self._tracks = still_alive
@@ -139,9 +153,10 @@ class Tracker:
         return confirmed
 
     def flush(self) -> list[ConfirmedDetection]:
-        """Drain all remaining tracks. Call on shutdown."""
         confirmed: list[ConfirmedDetection] = []
         for track in self._tracks:
+            if track.published:
+                continue
             result = self._try_confirm(track)
             if result is not None:
                 confirmed.append(result)
@@ -172,22 +187,15 @@ class Tracker:
         return best_track if best_score > 0 else None
 
     def _match_score(self, det: FrameDetection, track: Track) -> float:
-        """
-        Returns positive score if any matching criterion is met, else 0.
-        Priority: vehicle IoU > plate IoU > text fuzzy.
-        """
-        # 1. Vehicle bbox IoU
         if det.vehicle is not None and track.last_vehicle_bbox is not None:
             vehicle_iou = iou(det.vehicle.bbox, track.last_vehicle_bbox)
             if vehicle_iou >= self._min_iou:
                 return 3.0 + vehicle_iou
 
-        # 2. Plate bbox IoU
         plate_iou = iou(det.plate.bbox, track.last_plate_bbox)
         if plate_iou >= self._min_iou:
             return 2.0 + plate_iou
 
-        # 3. Text fuzzy match
         if track.readings:
             best = select_best_reading(track.readings, self._fuzzy_distance)
             if best is not None:
@@ -206,12 +214,26 @@ class Tracker:
         prev_best_conf = max((r[1] for r in track.readings), default=-1.0)
         track.readings.append((det.plate_text, det.ocr_confidence))
 
-        # Keep best frame (highest ocr confidence)
         if det.ocr_confidence >= prev_best_conf:
             track.best_frame = det.frame
             track.best_plate_bbox = det.plate.bbox
             if det.vehicle is not None:
                 track.best_vehicle_bbox = det.vehicle.bbox
+
+    def _try_confirm_early(self, track: Track) -> ConfirmedDetection | None:
+        if len(track.readings) < self._min_readings:
+            return None
+        result = select_best_reading(track.readings, self._fuzzy_distance)
+        if result is None:
+            return None
+        best_text, best_conf = result
+        group_size = sum(
+            1 for t, _ in track.readings
+            if _levenshtein(t, best_text) <= self._fuzzy_distance
+        )
+        if group_size < self._min_readings:
+            return None
+        return self._build_confirmed(track, best_text, best_conf)
 
     def _try_confirm(self, track: Track) -> ConfirmedDetection | None:
         if len(track.readings) < self._min_readings:
@@ -220,6 +242,18 @@ class Tracker:
         if result is None:
             return None
         text, conf = result
+        return self._build_confirmed(track, text, conf)
+
+    def _build_confirmed(self, track: Track, text: str, conf: float) -> ConfirmedDetection | None:
+        now = time.monotonic()
+        last = self._last_published.get(text)
+        if last is not None and now - last < self._cooldown_seconds:
+            logger.debug(
+                f"Tracker: skipping '{text}' — cooldown active "
+                f"({now - last:.1f}s / {self._cooldown_seconds}s)"
+            )
+            return None
+        self._last_published[text] = now
         return ConfirmedDetection(
             plate_text=text,
             confidence=conf,

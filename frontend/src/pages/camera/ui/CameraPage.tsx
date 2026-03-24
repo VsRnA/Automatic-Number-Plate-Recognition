@@ -57,7 +57,7 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
     setValidationError(null)
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!form.name?.trim() || !form.stream?.trim() || !form.streamHd?.trim()) {
       setValidationError('Заполните обязательные поля: название, поток SD и поток HD')

@@ -22,7 +22,6 @@ class PlateDetection:
 
 @dataclass
 class FrameDetection:
-    """One plate + associated vehicle (if found) for a single frame."""
     plate: PlateDetection
     vehicle: VehicleDetection | None
     plate_text: str

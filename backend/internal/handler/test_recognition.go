@@ -9,7 +9,7 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 )
 
-const maxVideoSize = 256 << 20 // 256 MB
+const maxVideoSize = 256 << 20
 
 type ITestRecognitionHandler interface {
 	RecognizeVideo(c *gin.Context)
@@ -23,11 +23,6 @@ func NewTestRecognitionHandler(client *infrastructure.RecognitionClient) *TestRe
 	return &TestRecognitionHandler{client: client}
 }
 
-// RecognizeVideo godoc
-// POST /api/v1/test/recognize-video
-// Принимает видеофайл multipart/form-data (поле "video"),
-// отправляет байты в Python сервис через gRPC,
-// возвращает список детектированных номеров с URL скриншотов из S3.
 func (h *TestRecognitionHandler) RecognizeVideo(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxVideoSize)
 

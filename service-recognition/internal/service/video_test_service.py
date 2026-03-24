@@ -31,7 +31,6 @@ class VideoTestService:
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         duration_sec = total_frames / fps if total_frames > 0 else 0.0
 
-        # For short videos reduce frame_interval so tracker accumulates enough reads
         if duration_sec < 10:
             frame_interval = max(1, self._frame_interval // 3)
             logger.debug(f"Short video ({duration_sec:.1f}s): frame_interval reduced to {frame_interval}")
@@ -63,7 +62,6 @@ class VideoTestService:
                     if result is not None:
                         results.append(result)
 
-            # Flush remaining tracks
             for confirmed in tracker.flush():
                 result = self._handle_confirmed(confirmed, frame_number, confirmed_plates)
                 if result is not None:

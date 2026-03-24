@@ -13,6 +13,8 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 )
 
+const dedupWindow = 60 * time.Second
+
 type redisPayload struct {
 	RequestID string         `json:"request_id"`
 	CameraID  string         `json:"camera_id"`
@@ -28,17 +30,20 @@ type platePayload struct {
 
 type RecognitionWorker struct {
 	plateRepo   repository.IPlateRepository
+	papRepo     repository.IPlateAccessPointRepository
 	cameraRepo  repository.ICameraRepository
 	historyRepo repository.IRecognitionHistoryRepository
 }
 
 func NewRecognitionWorker(
 	plateRepo repository.IPlateRepository,
+	papRepo repository.IPlateAccessPointRepository,
 	cameraRepo repository.ICameraRepository,
 	historyRepo repository.IRecognitionHistoryRepository,
 ) *RecognitionWorker {
 	return &RecognitionWorker{
 		plateRepo:   plateRepo,
+		papRepo:     papRepo,
 		cameraRepo:  cameraRepo,
 		historyRepo: historyRepo,
 	}
@@ -60,7 +65,6 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 		occurredAt = time.Now().UTC()
 	}
 
-	// Получаем accessPointId из камеры.
 	var accessPointId *int
 	camera, err := w.cameraRepo.Find(cameraGuid)
 	if err != nil {
@@ -69,12 +73,45 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 		accessPointId = camera.AccessPointId
 	}
 
+	since := occurredAt.Add(-dedupWindow)
+	recentRecords, err := w.historyRepo.List(&repository.RecognitionHistoryFilters{
+		CameraGuid: &cameraGuid,
+		DateFrom:   &since,
+		DateTo:     &occurredAt,
+		Limit:      100,
+	})
+	if err != nil {
+		log.Printf("RecognitionWorker: failed to load recent records for dedup: %v", err)
+		recentRecords = nil
+	}
+
 	for _, plate := range payload.Plates {
 		if plate.PlateNumber == "" {
 			continue
 		}
 
-		// Ищем номер в базе данных.
+		duplicate := findDuplicate(recentRecords, plate.PlateNumber)
+
+		if duplicate != nil {
+			if plate.Confidence <= duplicate.Confidence {
+				log.Printf("RecognitionWorker: skip duplicate plate %q (existing conf=%.2f >= new conf=%.2f)",
+					plate.PlateNumber, duplicate.Confidence, plate.Confidence)
+				continue
+			}
+			matchedForUpdate, _ := w.plateRepo.Get(&repository.PlateFilters{Number: &plate.PlateNumber})
+			duplicate.PlateNumber = plate.PlateNumber
+			duplicate.Confidence = plate.Confidence
+			duplicate.SnapshotUrl = plate.ScreenshotURL
+			duplicate.AccessGranted = resolveAccessGranted(w.papRepo, matchedForUpdate, accessPointId, occurredAt)
+			if err := w.historyRepo.Update(duplicate); err != nil {
+				log.Printf("RecognitionWorker: failed to update history for plate %q: %v", plate.PlateNumber, err)
+			} else {
+				log.Printf("RecognitionWorker: updated — camera=%s plate=%q conf=%.2f",
+					cameraGuid, plate.PlateNumber, plate.Confidence)
+			}
+			continue
+		}
+
 		var plateGuid *uuid.UUID
 		matched, err := w.plateRepo.Get(&repository.PlateFilters{Number: &plate.PlateNumber})
 		if err != nil {
@@ -84,12 +121,15 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 			plateGuid = &g
 		}
 
+		accessGranted := resolveAccessGranted(w.papRepo, matched, accessPointId, occurredAt)
+
 		record := &model.RecognitionHistory{
 			CameraGuid:    cameraGuid,
 			AccessPointId: accessPointId,
 			PlateNumber:   plate.PlateNumber,
 			PlateGuid:     plateGuid,
 			Confidence:    plate.Confidence,
+			AccessGranted: accessGranted,
 			SnapshotUrl:   plate.ScreenshotURL,
 			OccurredAt:    occurredAt,
 		}
@@ -104,4 +144,69 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 	}
 
 	return nil
+}
+
+func resolveAccessGranted(papRepo repository.IPlateAccessPointRepository, plate *model.Plate, accessPointId *int, at time.Time) *bool {
+	granted := false
+	if plate != nil && plate.IsEnabled {
+		if plate.ValidUntil == nil || at.Before(*plate.ValidUntil) {
+			if plate.AccessType == "allowed" || plate.AccessType == "vip" {
+				granted = hasAccessToPoint(papRepo, plate.Guid, accessPointId)
+			}
+		}
+	}
+	return &granted
+}
+
+func hasAccessToPoint(papRepo repository.IPlateAccessPointRepository, plateGuid uuid.UUID, accessPointId *int) bool {
+	items, err := papRepo.List(&repository.PlateAccessPointFilters{PlateGuid: &plateGuid})
+	if err != nil || len(items) == 0 {
+		// нет привязок — доступ разрешён везде
+		return true
+	}
+	if accessPointId == nil {
+		return false
+	}
+	for _, item := range items {
+		if item.AccessPointId == *accessPointId {
+			return true
+		}
+	}
+	return false
+}
+
+func findDuplicate(records []model.RecognitionHistory, plateNumber string) *model.RecognitionHistory {
+	for i := range records {
+		if levenshtein(plateNumber, records[i].PlateNumber) <= 1 {
+			return &records[i]
+		}
+	}
+	return nil
+}
+
+func levenshtein(s, t string) int {
+	rs, rt := []rune(s), []rune(t)
+	if len(rs) < len(rt) {
+		rs, rt = rt, rs
+	}
+	if len(rt) == 0 {
+		return len(rs)
+	}
+	prev := make([]int, len(rt)+1)
+	for i := range prev {
+		prev[i] = i
+	}
+	for _, cs := range rs {
+		curr := make([]int, len(rt)+1)
+		curr[0] = prev[0] + 1
+		for j, ct := range rt {
+			cost := 1
+			if cs == ct {
+				cost = 0
+			}
+			curr[j+1] = min(prev[j+1]+1, min(curr[j]+1, prev[j]+cost))
+		}
+		prev = curr
+	}
+	return prev[len(rt)]
 }

@@ -13,6 +13,9 @@ type Config struct {
 	Env      string `env:"ENV"`
 	HTTPPort string `env:"HTTP_PORT"`
 
+	AdminUser     string `env:"ADMIN_USER"`
+	AdminPassword string `env:"ADMIN_PASSWORD"`
+
 	DBHost string `env:"DB_HOST"`
 	DBPort string `env:"DB_PORT"`
 	DBName string `env:"DB_NAME"`
@@ -43,6 +46,9 @@ func LoadEnv() (*Config, error) {
 	cfg := &Config{
 		Env:      getEnv("ENV", "development"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
+
+		AdminUser:     getEnv("ADMIN_USER", "admin"),
+		AdminPassword: getEnv("ADMIN_PASSWORD", "admin"),
 
 		DBHost: getEnv("DB_HOST", "localhost"),
 		DBPort: getEnv("DB_PORT", "5432"),

@@ -11,7 +11,6 @@ if TYPE_CHECKING:
 
 
 def iou(a: BoundingBox, b: BoundingBox) -> float:
-    """Intersection over Union for two BoundingBox objects."""
     ax1, ay1 = a.x, a.y
     ax2, ay2 = a.x + a.width, a.y + a.height
     bx1, by1 = b.x, b.y
@@ -41,7 +40,6 @@ def expand_to_min_size(
     min_w: int = 128,
     min_h: int = 32,
 ) -> BoundingBox:
-    """Expand bbox to at least min_w x min_h, keeping center, clamped to frame."""
     h, w = frame_shape[:2]
     new_w = max(bbox.width, min_w)
     new_h = max(bbox.height, min_h)
@@ -54,7 +52,6 @@ def expand_to_min_size(
     x2 = min(w, x1 + new_w)
     y2 = min(h, y1 + new_h)
 
-    # Shift back if clamped
     if x2 - x1 < new_w:
         x1 = max(0, x2 - new_w)
     if y2 - y1 < new_h:
@@ -67,11 +64,6 @@ def associate_plates_to_vehicles(
     vehicles: list[VehicleDetection],
     plates: list[PlateDetection],
 ) -> list[tuple[VehicleDetection | None, PlateDetection]]:
-    """
-    Link each plate to the vehicle whose bbox contains the plate center.
-    If no vehicle contains the plate center, pick the nearest vehicle by center distance.
-    Plates without any vehicle get vehicle=None.
-    """
     result: list[tuple[VehicleDetection | None, PlateDetection]] = []
 
     for plate in plates:
@@ -80,7 +72,6 @@ def associate_plates_to_vehicles(
 
         matched_vehicle: VehicleDetection | None = None
 
-        # First: check if plate center is inside a vehicle bbox
         for vehicle in vehicles:
             vx1 = vehicle.bbox.x
             vy1 = vehicle.bbox.y
@@ -90,7 +81,6 @@ def associate_plates_to_vehicles(
                 matched_vehicle = vehicle
                 break
 
-        # Fallback: nearest vehicle by center distance
         if matched_vehicle is None and vehicles:
             def center_dist(v: VehicleDetection) -> float:
                 vcx = v.bbox.x + v.bbox.width // 2

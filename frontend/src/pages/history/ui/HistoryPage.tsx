@@ -1,130 +1,94 @@
-import { useState, useEffect } from 'react'
-import type { RecognitionHistory } from '@/entities/recognitionHistory'
-import { recognitionHistoryApi } from '@/entities/recognitionHistory'
+import { useState } from 'react'
+import { useRecognitionHistory } from '@/entities/recognitionHistory'
 import { formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
+import { StatPill, SearchInput, TableSkeleton, ConfidenceBar } from '@/shared/ui'
+import pageStyles from '@/shared/ui/page.module.css'
 import styles from './HistoryPage.module.css'
 
-function SearchIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-      <circle cx="6.5" cy="6.5" r="5" stroke="#9ca3af" strokeWidth="1.5" />
-      <path d="M10.5 10.5L14 14" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 export function HistoryPage() {
-  const [records, setRecords] = useState<RecognitionHistory[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  const load = (plateNumber?: string) => {
-    setLoading(true)
-    setError(null)
-    recognitionHistoryApi.list({ limit: 50, plateNumber: plateNumber || undefined })
-      .then(data => setRecords(data))
-      .catch((err: unknown) => setError(getErrorMessage(err)))
-      .finally(() => setLoading(false))
-  }
+  const queryParams = search.length === 0 || search.length >= 2
+    ? { plateNumber: search || undefined }
+    : {}
 
-  useEffect(() => {
-    let cancelled = false
-    recognitionHistoryApi.list({ limit: 50 })
-      .then(data => { if (!cancelled) setRecords(data) })
-      .catch((err: unknown) => { if (!cancelled) setError(getErrorMessage(err)) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
+  const { data: records = [], isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
 
   const handleSearch = (value: string) => {
     setSearch(value)
-    if (value.length === 0 || value.length >= 2) {
-      load(value)
-    }
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.content}>
-        <div className={styles.statsRow}>
-          <div className={styles.statPill}>
-            <span className={styles.statPillLabel}>Показано</span>
-            <span className={styles.statPillCount}>{records.length}</span>
-          </div>
-          <div className={`${styles.statPill} ${styles.statPillGreen}`}>
-            <span className={styles.statPillLabel}>Известные</span>
-            <span className={styles.statPillCount}>{records.filter(r => r.plateGuid !== null).length}</span>
-          </div>
-          <div className={`${styles.statPill} ${styles.statPillGray}`}>
-            <span className={styles.statPillLabel}>Неизвестные</span>
-            <span className={styles.statPillCount}>{records.filter(r => r.plateGuid === null).length}</span>
-          </div>
+    <div className={pageStyles.page}>
+      <div className={pageStyles.content}>
+        <div className={pageStyles.statsRow}>
+          <StatPill label="Показано" count={records.length} />
+          <StatPill label="Известные" count={records.filter(r => r.plateGuid !== null).length} variant="green" />
+          <StatPill label="Неизвестные" count={records.filter(r => r.plateGuid === null).length} variant="gray" />
+          <span className={styles.liveIndicator}>
+            <span className={isRefetching ? styles.liveDotActive : styles.liveDot} />
+            Обновляется автоматически
+          </span>
         </div>
 
-        <div className={styles.toolbar}>
-          <div className={styles.searchWrapper}>
-            <span className={styles.searchIcon}><SearchIcon /></span>
-            <input className={styles.searchInput} type="text" placeholder="Поиск по номеру..."
-              value={search} onChange={e => handleSearch(e.target.value)} />
-          </div>
-          <button className={styles.refreshBtn} onClick={() => load(search)}>Обновить</button>
+        <div className={pageStyles.toolbar}>
+          <SearchInput value={search} onChange={handleSearch} placeholder="Поиск по номеру..." />
         </div>
 
-        <div className={styles.tableWrapper}>
-          {loading && <div className={styles.stateMessage}>Загрузка...</div>}
+        <div className={pageStyles.tableWrapper}>
           {error && (
-            <div className={styles.stateError}>
-              {error}
-              <button className={styles.retryBtn} onClick={() => load(search)}>Повторить</button>
+            <div className={pageStyles.stateError}>
+              {getErrorMessage(error)}
+              <button className={pageStyles.retryBtn} onClick={() => refetch()}>Повторить</button>
             </div>
           )}
-          {!loading && !error && (
-            <table className={styles.table}>
+          {!error && (
+            <table className={pageStyles.table}>
               <thead>
-                <tr className={styles.theadRow}>
-                  <th className={styles.th}>ВРЕМЯ</th>
-                  <th className={styles.th}>НОМЕР</th>
-                  <th className={styles.th}>СОВПАДЕНИЕ</th>
-                  <th className={styles.th}>УВЕРЕННОСТЬ</th>
-                  <th className={styles.th}>ТОЧКА ДОСТУПА</th>
-                  <th className={styles.th}>КАМЕРА</th>
-                  <th className={styles.th}>ФОТО</th>
+                <tr className={pageStyles.theadRow}>
+                  <th className={pageStyles.th}>ВРЕМЯ</th>
+                  <th className={pageStyles.th}>НОМЕР</th>
+                  <th className={pageStyles.th}>СОВПАДЕНИЕ</th>
+                  <th className={pageStyles.th}>УВЕРЕННОСТЬ</th>
+                  <th className={pageStyles.th}>ТОЧКА ДОСТУПА</th>
+                  <th className={pageStyles.th}>КАМЕРА</th>
+                  <th className={pageStyles.th}>ФОТО</th>
                 </tr>
               </thead>
               <tbody>
-                {records.map(record => (
-                  <tr key={record.id} className={styles.row}>
-                    <td className={styles.cell}>
+                {isLoading && <TableSkeleton rows={5} cols={7} />}
+                {!isLoading && records.map(record => (
+                  <tr key={record.id} className={pageStyles.row}>
+                    <td className={pageStyles.cell}>
                       <span className={styles.datetime}>{formatDateTime(record.occurredAt)}</span>
                     </td>
-                    <td className={styles.cell}>
+                    <td className={pageStyles.cell}>
                       <span className={styles.plateNumber}>{record.plateNumber}</span>
                     </td>
-                    <td className={styles.cell}>
+                    <td className={pageStyles.cell}>
                       {record.plateGuid !== null ? (
                         <span className={styles.matchBadge}>В базе</span>
                       ) : (
                         <span className={styles.unknownBadge}>Неизвестен</span>
                       )}
                     </td>
-                    <td className={styles.cell}>
+                    <td className={pageStyles.cell}>
                       <ConfidenceBar value={record.confidence} />
                     </td>
-                    <td className={styles.cell}>
+                    <td className={pageStyles.cell}>
                       {record.accessPointId !== null ? (
                         <span className={styles.apBadge}>#{record.accessPointId}</span>
                       ) : (
                         <span className={styles.dash}>—</span>
                       )}
                     </td>
-                    <td className={styles.cell}>
+                    <td className={pageStyles.cell}>
                       <span className={styles.cameraId} title={record.cameraGuid}>
                         {record.cameraGuid.slice(0, 8)}…
                       </span>
                     </td>
-                    <td className={styles.cell}>
+                    <td className={pageStyles.cell}>
                       {record.snapshotUrl ? (
                         <a href={record.snapshotUrl} target="_blank" rel="noreferrer" className={styles.photoThumbLink}>
                           <img
@@ -139,27 +103,16 @@ export function HistoryPage() {
                     </td>
                   </tr>
                 ))}
-                {records.length === 0 && (
-                  <tr><td colSpan={7} className={styles.stateMessage}>Записей не найдено</td></tr>
+                {!isLoading && records.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className={pageStyles.stateMessage}>Записей не найдено</td>
+                  </tr>
                 )}
               </tbody>
             </table>
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-function ConfidenceBar({ value }: { value: number }) {
-  const pct = Math.round(value * 100)
-  const color = pct >= 80 ? '#16a34a' : pct >= 60 ? '#ca8a04' : '#dc2626'
-  return (
-    <div className={styles.confidenceRow}>
-      <div className={styles.confidenceBar}>
-        <div className={styles.confidenceFill} style={{ width: `${pct}%`, backgroundColor: color }} />
-      </div>
-      <span className={styles.confidenceLabel} style={{ color }}>{pct}%</span>
     </div>
   )
 }

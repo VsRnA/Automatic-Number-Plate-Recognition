@@ -55,7 +55,11 @@ func (h *AccessPointHandler) CreateAccessPoint(c *gin.Context) {
 	ap := &model.AccessPoint{
 		Name:        req.Name,
 		Description: req.Description,
+		Direction:   "both",
 		IsEnabled:   true,
+	}
+	if req.Direction != "" {
+		ap.Direction = req.Direction
 	}
 	if req.IsEnabled != nil {
 		ap.IsEnabled = *req.IsEnabled
@@ -117,6 +121,9 @@ func (h *AccessPointHandler) UpdateAccessPoint(c *gin.Context) {
 	}
 	if req.Description != "" {
 		ap.Description = req.Description
+	}
+	if req.Direction != "" {
+		ap.Direction = req.Direction
 	}
 	if req.IsEnabled != nil {
 		ap.IsEnabled = *req.IsEnabled

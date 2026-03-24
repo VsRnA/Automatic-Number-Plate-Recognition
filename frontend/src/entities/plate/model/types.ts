@@ -26,3 +26,29 @@ export interface UpdatePlateDto {
   comment?: string
   isEnabled?: boolean
 }
+
+export interface ImportRowErrors {
+  number?: string
+  region?: string
+  accessType?: string
+  validUntil?: string
+}
+
+export interface ImportPreviewRow {
+  row: number
+  number: string
+  region: string
+  accessType: string
+  validUntil: string | null
+  comment: string
+  isEnabled: boolean
+  errors: ImportRowErrors
+  status: 'ok' | 'duplicate' | 'invalid'
+}
+
+export interface ImportPreviewResponse {
+  rows: ImportPreviewRow[]
+  totalOk: number
+  totalDuplicates: number
+  totalInvalid: number
+}

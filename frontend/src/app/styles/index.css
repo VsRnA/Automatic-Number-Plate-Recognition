@@ -13,6 +13,28 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-bg: #eff6ff;
+  --color-primary-bg-hover: #dbeafe;
+  --color-success: #16a34a;
+  --color-success-light: #22c55e;
+  --color-error: #dc2626;
+  --color-error-light: #ef4444;
+  --color-warning: #ca8a04;
+  --color-border: #e5e7eb;
+  --color-bg: #f7f8fa;
+  --color-surface: #fff;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
 }
 
 body {
@@ -38,6 +60,12 @@ button {
 
 input {
   font-family: inherit;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
 }
 
 @media (max-width: 640px) {
