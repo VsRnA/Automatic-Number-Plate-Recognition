@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure/database"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
@@ -67,6 +69,7 @@ func (a *App) Run() error {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	recognitionWorker := worker.NewRecognitionWorker(
 		repositories.Plate,
+		repositories.PlateAccessPoint,
 		repositories.Camera,
 		repositories.Recognition,
 	)
@@ -78,6 +81,7 @@ func (a *App) Run() error {
 		recognitionWorker,
 	)
 	go consumer.Start(workerCtx)
+	go runExpirationTicker(workerCtx, db, 1*time.Hour)
 
 	if recognitionClient != nil {
 		go restoreWorkers(recognitionClient, repositories.Camera)
@@ -109,6 +113,26 @@ func (a *App) Run() error {
 
 	log.Println("Server stopped")
 	return nil
+}
+
+func runExpirationTicker(ctx context.Context, db *gorm.DB, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			result := db.Exec(
+				`UPDATE plates SET "isEnabled" = false WHERE "isEnabled" = true AND "validUntil" IS NOT NULL AND "validUntil" < NOW()`,
+			)
+			if result.Error != nil {
+				log.Printf("ExpirationTicker: failed to deactivate expired plates: %v", result.Error)
+			} else if result.RowsAffected > 0 {
+				log.Printf("ExpirationTicker: deactivated %d expired plates", result.RowsAffected)
+			}
+		}
+	}
 }
 
 func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo repository.ICameraRepository) {

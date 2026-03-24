@@ -1,167 +1,50 @@
-.page {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background-color: #f7f8fa;
-}
-
-.content {
-  padding: 24px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.statsRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.statPill {
+.liveIndicator {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: 1.5px solid #111827;
-  background: transparent;
-  white-space: nowrap;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-left: 8px;
 }
 
-.statPillGreen {
-  border-color: #16a34a;
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
-.statPillGreen .statPillLabel,
-.statPillGreen .statPillCount {
-  color: #16a34a;
+.liveDotActive {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success-light);
+  flex-shrink: 0;
+  animation: pulse 1s ease-in-out infinite;
 }
 
-.statPillGray {
-  border-color: #9ca3af;
-}
-
-.statPillGray .statPillLabel,
-.statPillGray .statPillCount {
-  color: #6b7280;
-}
-
-.statPillLabel {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #111827;
-}
-
-.statPillCount {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #111827;
-  font-variant-numeric: tabular-nums;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.searchWrapper {
-  position: relative;
-  flex: 1;
-  min-width: 200px;
-  max-width: 400px;
-}
-
-.searchIcon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  pointer-events: none;
-}
-
-.searchInput {
-  width: 100%;
-  padding: 9px 12px 9px 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 13.5px;
-  color: #374151;
-  background: #fff;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.15s;
-}
-
-.searchInput::placeholder {
-  color: #9ca3af;
-}
-
-.searchInput:focus {
-  border-color: #2563eb;
+@keyframes pulse {
+  0%, 100% { opacity: 1 }
+  50% { opacity: 0.4 }
 }
 
 .refreshBtn {
   padding: 8px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-secondary);
   cursor: pointer;
+  font-family: inherit;
   transition: background 0.15s;
-}
-
-.refreshBtn:hover {
-  background: #f9fafb;
-}
-
-.tableWrapper {
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 700px;
-}
-
-.theadRow {
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.th {
-  padding: 12px 16px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
-  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
-.row {
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.row:last-child {
-  border-bottom: none;
-}
-
-.cell {
-  padding: 12px 16px;
-  font-size: 13.5px;
-  color: #374151;
+.refreshBtn:hover {
+  background: var(--color-bg);
 }
 
 .datetime {
@@ -218,12 +101,12 @@
   line-height: 0;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   transition: border-color 0.15s;
 }
 
 .photoThumbLink:hover {
-  border-color: #2563eb;
+  border-color: var(--color-primary);
 }
 
 .photoThumb {
@@ -235,76 +118,4 @@
 
 .dash {
   color: #d1d5db;
-}
-
-.confidenceRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.confidenceBar {
-  width: 60px;
-  height: 6px;
-  background: #f3f4f6;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.confidenceFill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.3s;
-}
-
-.confidenceLabel {
-  font-size: 12px;
-  font-weight: 600;
-  min-width: 36px;
-}
-
-.stateMessage {
-  padding: 40px 24px;
-  text-align: center;
-  font-size: 14px;
-  color: #9ca3af;
-}
-
-.stateError {
-  padding: 40px 24px;
-  text-align: center;
-  font-size: 14px;
-  color: #dc2626;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.retryBtn {
-  padding: 6px 14px;
-  border: 1px solid #fca5a5;
-  border-radius: 6px;
-  background: #fff;
-  font-size: 13px;
-  color: #dc2626;
-  cursor: pointer;
-}
-
-@media (max-width: 900px) {
-  .content {
-    padding: 18px 20px;
-  }
-}
-
-@media (max-width: 640px) {
-  .content {
-    padding: 14px 16px;
-  }
-
-  .searchWrapper {
-    max-width: 100%;
-    flex: 1 1 100%;
-    order: -1;
-  }
 }

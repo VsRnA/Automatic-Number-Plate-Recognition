@@ -26,7 +26,7 @@ export function CameraAddPage({ onBack, onCreated }: CameraAddPageProps) {
   const [validationError, setValidationError] = useState<string | null>(null)
   const { showToast } = useToast()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!form.name.trim() || !form.stream.trim() || !form.streamHd.trim()) {
       setValidationError('Заполните обязательные поля: название, поток SD и поток HD')

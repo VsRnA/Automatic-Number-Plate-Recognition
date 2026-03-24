@@ -1,5 +1,5 @@
 import { api } from '@/shared/api'
-import type { Plate, CreatePlateDto, UpdatePlateDto } from '../model/types'
+import type { Plate, CreatePlateDto, UpdatePlateDto, ImportPreviewResponse } from '../model/types'
 
 export interface PlateListParams {
   number?: string
@@ -27,4 +27,16 @@ export const plateApi = {
     api.put<Plate>(`/plates/${id}`, data),
 
   delete: (id: string): Promise<void> => api.delete(`/plates/${id}`),
+
+  previewImport: (file: File): Promise<ImportPreviewResponse> => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.postForm<ImportPreviewResponse>('/plates/import/preview', form)
+  },
+
+  importCsv: (file: File): Promise<{ created: number; skipped: number }> => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.postForm('/plates/import', form)
+  },
 }

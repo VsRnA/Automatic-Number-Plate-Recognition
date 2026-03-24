@@ -21,6 +21,7 @@ import (
 type IPlateHandler interface {
 	CreatePlate(c *gin.Context)
 	ImportPlates(c *gin.Context)
+	PreviewImportPlates(c *gin.Context)
 	GetPlate(c *gin.Context)
 	UpdatePlate(c *gin.Context)
 	DeletePlate(c *gin.Context)
@@ -34,17 +35,57 @@ type PlateHandler struct {
 }
 
 type plateDeps struct {
-	repo repository.IPlateRepository
+	repo   repository.IPlateRepository
+	papRepo repository.IPlateAccessPointRepository
 }
 
-func NewPlateHandler(repo repository.IPlateRepository, validate *validator.Validate) IPlateHandler {
+func NewPlateHandler(repo repository.IPlateRepository, papRepo repository.IPlateAccessPointRepository, validate *validator.Validate) IPlateHandler {
 	return &PlateHandler{
 		plate: &plateDeps{
-			repo: repo,
+			repo:    repo,
+			papRepo: papRepo,
 		},
 		validate: validate,
 		entity:   "plate",
 	}
+}
+
+func (h *PlateHandler) buildResponse(plate *model.Plate) model.PlateResponse {
+	resp := model.PlateResponse{
+		Guid:           plate.Guid,
+		Number:         plate.Number,
+		Region:         plate.Region,
+		AccessType:     plate.AccessType,
+		ValidUntil:     plate.ValidUntil,
+		Comment:        plate.Comment,
+		IsEnabled:      plate.IsEnabled,
+		CreatedAt:      plate.CreatedAt,
+		AccessPointIds: []int{},
+	}
+
+	items, err := h.plate.papRepo.List(&repository.PlateAccessPointFilters{PlateGuid: &plate.Guid})
+	if err == nil {
+		for _, item := range items {
+			resp.AccessPointIds = append(resp.AccessPointIds, item.AccessPointId)
+		}
+	}
+
+	return resp
+}
+
+func (h *PlateHandler) syncAccessPoints(plateGuid uuid.UUID, ids []int) error {
+	if err := h.plate.papRepo.DeleteByPlate(plateGuid); err != nil {
+		return err
+	}
+	for _, apId := range ids {
+		if err := h.plate.papRepo.Create(&model.PlateAccessPoint{
+			PlateGuid:     plateGuid,
+			AccessPointId: apId,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *PlateHandler) CreatePlate(c *gin.Context) {
@@ -82,7 +123,14 @@ func (h *PlateHandler) CreatePlate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, plate)
+	if len(req.AccessPointIds) > 0 {
+		if err := h.syncAccessPoints(plate.Guid, req.AccessPointIds); err != nil {
+			exception.HttpResponseException(c, exception.InternalError("failed to set access points: "+err.Error()))
+			return
+		}
+	}
+
+	c.JSON(http.StatusCreated, h.buildResponse(plate))
 }
 
 func (h *PlateHandler) GetPlate(c *gin.Context) {
@@ -103,7 +151,7 @@ func (h *PlateHandler) GetPlate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, plate)
+	c.JSON(http.StatusOK, h.buildResponse(plate))
 }
 
 func (h *PlateHandler) UpdatePlate(c *gin.Context) {
@@ -154,7 +202,14 @@ func (h *PlateHandler) UpdatePlate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, plate)
+	if req.AccessPointIds != nil {
+		if err := h.syncAccessPoints(plate.Guid, *req.AccessPointIds); err != nil {
+			exception.HttpResponseException(c, exception.InternalError("failed to update access points: "+err.Error()))
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, h.buildResponse(plate))
 }
 
 func (h *PlateHandler) DeletePlate(c *gin.Context) {
@@ -222,7 +277,12 @@ func (h *PlateHandler) ListPlates(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, plates)
+	responses := make([]model.PlateResponse, 0, len(plates))
+	for i := range plates {
+		responses = append(responses, h.buildResponse(&plates[i]))
+	}
+
+	c.JSON(http.StatusOK, responses)
 }
 
 func (h *PlateHandler) ImportPlates(c *gin.Context) {
@@ -235,6 +295,7 @@ func (h *PlateHandler) ImportPlates(c *gin.Context) {
 
 	reader := csv.NewReader(file)
 	reader.TrimLeadingSpace = true
+	reader.Comma = ';'
 
 	if _, err := reader.Read(); err != nil {
 		exception.HttpResponseException(c, exception.RequestValidationError("failed to read CSV header"))
@@ -260,7 +321,7 @@ func (h *PlateHandler) ImportPlates(c *gin.Context) {
 		if len(row) > 1 {
 			region = strings.TrimSpace(row[1])
 		}
-		accessType := strings.TrimSpace(row[2])
+		accessType := strings.ToLower(strings.TrimSpace(row[2]))
 		if number == "" || accessType == "" {
 			skipped++
 			continue
@@ -299,6 +360,118 @@ func (h *PlateHandler) ImportPlates(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"created": created, "skipped": skipped})
+}
+
+var validAccessTypes = map[string]bool{"allowed": true, "blocked": true, "vip": true}
+
+func (h *PlateHandler) PreviewImportPlates(c *gin.Context) {
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("file is required"))
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.TrimLeadingSpace = true
+	reader.Comma = ';'
+
+	if _, err := reader.Read(); err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("failed to read CSV header"))
+		return
+	}
+
+	rows := make([]model.ImportPreviewRow, 0)
+	rowNum := 0
+	totalOk, totalDuplicates, totalInvalid := 0, 0, 0
+
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue
+		}
+		rowNum++
+
+		var errs model.ImportRowErrors
+		var validUntil *time.Time
+		number, region, accessType, comment := "", "", "", ""
+		isEnabled := true
+
+		if len(row) > 0 {
+			number = strings.TrimSpace(row[0])
+		}
+		if len(row) > 1 {
+			region = strings.TrimSpace(row[1])
+		}
+		if len(row) > 2 {
+			accessType = strings.ToLower(strings.TrimSpace(row[2]))
+		}
+		if len(row) > 3 && strings.TrimSpace(row[3]) != "" {
+			if t, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(row[3])); parseErr == nil {
+				validUntil = &t
+			} else {
+				errs.ValidUntil = "invalid_format"
+			}
+		}
+		if len(row) > 4 {
+			comment = strings.TrimSpace(row[4])
+		}
+		if len(row) > 5 {
+			isEnabled = strings.TrimSpace(row[5]) != "false"
+		}
+
+		if number == "" {
+			errs.Number = "required"
+		} else if len(number) > 20 {
+			errs.Number = "too_long"
+		}
+		if len(region) > 10 {
+			errs.Region = "too_long"
+		}
+		if accessType == "" {
+			errs.AccessType = "required"
+		} else if !validAccessTypes[strings.ToLower(accessType)] {
+			errs.AccessType = "invalid_value"
+		}
+
+		status := "ok"
+		hasErrors := errs.Number != "" || errs.Region != "" || errs.AccessType != "" || errs.ValidUntil != ""
+		if hasErrors {
+			status = "invalid"
+			totalInvalid++
+		} else {
+			existing, _ := h.plate.repo.Get(&repository.PlateFilters{Number: &number})
+			if existing != nil {
+				errs.Number = "duplicate"
+				status = "duplicate"
+				totalDuplicates++
+			} else {
+				totalOk++
+			}
+		}
+
+		rows = append(rows, model.ImportPreviewRow{
+			Row:        rowNum,
+			Number:     number,
+			Region:     region,
+			AccessType: accessType,
+			ValidUntil: validUntil,
+			Comment:    comment,
+			IsEnabled:  isEnabled,
+			Errors:     errs,
+			Status:     status,
+		})
+	}
+
+	c.JSON(http.StatusOK, model.ImportPreviewResponse{
+		Rows:            rows,
+		TotalOk:         totalOk,
+		TotalDuplicates: totalDuplicates,
+		TotalInvalid:    totalInvalid,
+	})
 }
 
 func (h *PlateHandler) validateRequestBody(c *gin.Context, req any) error {
