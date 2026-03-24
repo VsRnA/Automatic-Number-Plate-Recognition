@@ -26,7 +26,7 @@ func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClien
 	validate := validator.New()
 
 	return &Handler{
-		Plate:              NewPlateHandler(repo.Plate, validate),
+		Plate:              NewPlateHandler(repo.Plate, repo.PlateAccessPoint, validate),
 		Camera:             NewCameraHandler(repo.Camera, recognitionClient, validate),
 		Recognition:        NewRecognitionHandler(recognitionClient),
 		TestRecognition:    NewTestRecognitionHandler(recognitionClient),
@@ -50,6 +50,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		{
 			plates.POST("", h.Plate.CreatePlate)
 			plates.POST("/import", h.Plate.ImportPlates)
+			plates.POST("/import/preview", h.Plate.PreviewImportPlates)
 			plates.GET("", h.Plate.ListPlates)
 			plates.GET("/:id", h.Plate.GetPlate)
 			plates.PUT("/:id", h.Plate.UpdatePlate)

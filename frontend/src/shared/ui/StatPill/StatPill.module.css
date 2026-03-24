@@ -1,0 +1,50 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--color-text);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.count {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.green {
+  border-color: var(--color-success);
+}
+
+.green .label,
+.green .count {
+  color: var(--color-success);
+}
+
+.red {
+  border-color: var(--color-error);
+}
+
+.red .label,
+.red .count {
+  color: var(--color-error);
+}
+
+.gray {
+  border-color: var(--color-text-muted);
+}
+
+.gray .label,
+.gray .count {
+  color: var(--color-text-muted);
+}

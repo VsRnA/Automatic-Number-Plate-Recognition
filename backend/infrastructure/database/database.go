@@ -34,7 +34,7 @@ func InitDB(cfg DBConfig) (*gorm.DB, error) {
 	}
 
 	if err := db.AutoMigrate(
-		&model.Plate{}, &model.Camera{}, &model.AccessPoint{}, &model.RecognitionHistory{}, &model.ApiToken{},
+		&model.Plate{}, &model.Camera{}, &model.AccessPoint{}, &model.RecognitionHistory{}, &model.ApiToken{}, &model.PlateAccessPoint{},
 		); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}

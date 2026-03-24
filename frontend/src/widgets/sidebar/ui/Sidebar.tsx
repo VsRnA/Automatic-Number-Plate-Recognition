@@ -78,7 +78,7 @@ export function Sidebar({ activeItem = 'cameras', onNavigate }: SidebarProps) {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logo}>
-        <div className={styles.logoTitle}>ANRP</div>
+        <div className={styles.logoTitle}>ANPR</div>
         <div className={styles.logoSubtitle}>СИСТЕМА ДОСТУПА</div>
       </div>
 
