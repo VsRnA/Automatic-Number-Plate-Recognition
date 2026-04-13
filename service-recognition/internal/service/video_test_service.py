@@ -37,7 +37,7 @@ class VideoTestService:
         else:
             frame_interval = self._frame_interval
 
-        tracker = Tracker(stale_frames=10, fuzzy_distance=1, min_iou=0.3, min_readings=2)
+        tracker = Tracker(stale_frames=10, fuzzy_distance=1, min_iou=0.3, min_readings=2, text_match_enabled=False)
 
         confirmed_plates: set[str] = set()
         results: list[VideoFrameResult] = []

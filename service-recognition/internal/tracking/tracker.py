@@ -92,12 +92,14 @@ class Tracker:
         min_iou: float = 0.3,
         min_readings: int = 2,
         cooldown_seconds: float = 30.0,
+        text_match_enabled: bool = False,
     ):
         self._stale_frames = stale_frames
         self._fuzzy_distance = fuzzy_distance
         self._min_iou = min_iou
         self._min_readings = min_readings
         self._cooldown_seconds = cooldown_seconds
+        self._text_match_enabled = text_match_enabled
         self._tracks: list[Track] = []
         self._last_published: dict[str, float] = {}
 
@@ -137,15 +139,16 @@ class Tracker:
 
         still_alive: list[Track] = []
         for track in self._tracks:
+            if track.published:
+                continue
             if track.frames_since_seen > self._stale_frames:
-                if not track.published:
-                    result = self._try_confirm(track)
-                    if result is not None:
-                        confirmed.append(result)
-                        logger.info(
-                            f"Tracker: confirmed stale track '{result.plate_text}' "
-                            f"({len(track.readings)} readings)"
-                        )
+                result = self._try_confirm(track)
+                if result is not None:
+                    confirmed.append(result)
+                    logger.info(
+                        f"Tracker: confirmed stale track '{result.plate_text}' "
+                        f"({len(track.readings)} readings)"
+                    )
             else:
                 still_alive.append(track)
         self._tracks = still_alive
@@ -196,7 +199,7 @@ class Tracker:
         if plate_iou >= self._min_iou:
             return 2.0 + plate_iou
 
-        if track.readings:
+        if self._text_match_enabled and track.readings:
             best = select_best_reading(track.readings, self._fuzzy_distance)
             if best is not None:
                 best_text, _ = best

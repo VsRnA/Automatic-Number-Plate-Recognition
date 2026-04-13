@@ -1,11 +1,11 @@
 import concurrent.futures
 import logging
+import os
 import socket
 import threading
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 from urllib.parse import urlparse
 
 import cv2
@@ -32,6 +32,7 @@ class WorkerThread(threading.Thread):
         tracker_min_iou: float = 0.3,
         tracker_min_readings: int = 2,
         tracker_cooldown_seconds: float = 30.0,
+        tracker_text_match_enabled: bool = False,
     ):
         super().__init__(daemon=True)
         self.worker = worker
@@ -54,6 +55,7 @@ class WorkerThread(threading.Thread):
             min_iou=tracker_min_iou,
             min_readings=tracker_min_readings,
             cooldown_seconds=tracker_cooldown_seconds,
+            text_match_enabled=tracker_text_match_enabled,
         )
 
     def run(self):
@@ -105,12 +107,11 @@ class WorkerThread(threading.Thread):
         return True
 
     def _process_stream(self):
-        cap: Optional[cv2.VideoCapture] = None
+        cap: cv2.VideoCapture | None = None
         try:
             if not self._check_rtsp_connectivity(self.worker.stream):
                 raise RuntimeError(f"RTSP server not reachable: {self.worker.stream}")
 
-            import os
             os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;10000000"
             cap = cv2.VideoCapture(self.worker.stream, cv2.CAP_FFMPEG)
 

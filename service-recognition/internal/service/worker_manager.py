@@ -53,6 +53,7 @@ class WorkerManager:
                 tracker_min_iou=self._settings.tracker_min_iou,
                 tracker_min_readings=self._settings.tracker_min_readings,
                 tracker_cooldown_seconds=self._settings.tracker_cooldown_seconds,
+                tracker_text_match_enabled=self._settings.tracker_text_match_enabled,
             )
             self._threads[camera_id] = thread
             thread.start()
