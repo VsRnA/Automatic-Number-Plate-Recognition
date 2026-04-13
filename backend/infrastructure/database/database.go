@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -33,9 +34,17 @@ func InitDB(cfg DBConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get underlying db: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
+
 	if err := db.AutoMigrate(
 		&model.Plate{}, &model.Camera{}, &model.AccessPoint{}, &model.RecognitionHistory{}, &model.ApiToken{}, &model.PlateAccessPoint{},
-		); err != nil {
+	); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
