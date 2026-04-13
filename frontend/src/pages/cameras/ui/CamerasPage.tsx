@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Camera } from '@/entities/camera'
 import { useCameras, useDeleteCamera } from '@/entities/camera'
+import { useAccessPoints } from '@/entities/accessPoint'
 import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
 import { StatPill, SearchInput, TableSkeleton, ConfirmDialog, SortIcon } from '@/shared/ui'
@@ -18,6 +19,7 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
   const { showToast } = useToast()
 
   const { data: cameras = [], isLoading, error, refetch } = useCameras()
+  const { data: accessPoints = [] } = useAccessPoints()
   const deleteCamera = useDeleteCamera()
 
   const handleDelete = () => {
@@ -34,6 +36,36 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
   )
 
   const deletingCamera = cameras.find(c => c.guid === deletingId)
+
+  const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
+
+  // Group cameras by access point; access points in API order, unassigned last
+  const groups = useMemo(() => {
+    const byAp = new Map<number, Camera[]>()
+    const unassigned: Camera[] = []
+    filtered.forEach(c => {
+      if (c.accessPointId !== null) {
+        const list = byAp.get(c.accessPointId) ?? []
+        list.push(c)
+        byAp.set(c.accessPointId, list)
+      } else {
+        unassigned.push(c)
+      }
+    })
+    const result: Array<{ apId: number | null; name: string; cameras: Camera[] }> = []
+    accessPoints.forEach(ap => {
+      const cams = byAp.get(ap.id)
+      if (cams) result.push({ apId: ap.id, name: ap.name, cameras: cams })
+    })
+    // Access points not in the list (AP deleted but camera still references it)
+    byAp.forEach((cams, apId) => {
+      if (!accessPoints.find(ap => ap.id === apId)) {
+        result.push({ apId, name: `Точка #${apId}`, cameras: cams })
+      }
+    })
+    if (unassigned.length > 0) result.push({ apId: null, name: 'Без точки доступа', cameras: unassigned })
+    return result
+  }, [filtered, accessPoints])
 
   return (
     <div className={pageStyles.page}>
@@ -57,47 +89,56 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
           <span className={pageStyles.recordsCount}>{filtered.length} записей</span>
         </div>
 
-        <div className={pageStyles.tableWrapper}>
-          {error && (
+        {error && (
+          <div className={pageStyles.tableWrapper}>
             <div className={pageStyles.stateError}>
               {getErrorMessage(error)}
               <button className={pageStyles.retryBtn} onClick={() => refetch()}>Повторить</button>
             </div>
-          )}
-          {!error && (
+          </div>
+        )}
+
+        {isLoading && (
+          <div className={pageStyles.tableWrapper}>
             <table className={pageStyles.table}>
-              <thead>
-                <tr className={pageStyles.theadRow}>
-                  <th className={pageStyles.th}>КАМЕРА <span className={pageStyles.sortIcon}><SortIcon /></span></th>
-                  <th className={pageStyles.th}>ПОТОК SD</th>
-                  <th className={pageStyles.th}>ПОТОК HD</th>
-                  <th className={pageStyles.th}>СТАТУС</th>
-                  <th className={pageStyles.th}>ТОЧКА ДОСТУПА</th>
-                  <th className={pageStyles.th}>ДОБАВЛЕНА</th>
-                  <th className={pageStyles.th} />
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading && <TableSkeleton rows={5} cols={7} />}
-                {!isLoading && filtered.map(camera => (
-                  <CameraRowItem
-                    key={camera.guid}
-                    camera={camera}
-                    onClick={onCameraClick}
-                    onDeleteRequest={setDeletingId}
-                  />
-                ))}
-                {!isLoading && filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className={pageStyles.stateMessage}>
-                      {search ? `По запросу «${search}» ничего не найдено` : 'Камеры не добавлены'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+              <CameraTableHead />
+              <tbody><TableSkeleton rows={5} cols={7} /></tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
+
+        {!isLoading && !error && filtered.length === 0 && (
+          <div className={pageStyles.tableWrapper}>
+            <div className={pageStyles.stateMessage}>
+              {search ? `По запросу «${search}» ничего не найдено` : 'Камеры не добавлены'}
+            </div>
+          </div>
+        )}
+
+        {!isLoading && !error && groups.map(group => (
+          <div key={`group-${group.apId}`} className={styles.groupSection}>
+            <div className={styles.groupLabel}>
+              <span className={styles.groupLabelText}>{group.name}</span>
+              <span className={styles.groupCount}>{group.cameras.length}</span>
+            </div>
+            <div className={pageStyles.tableWrapper}>
+              <table className={pageStyles.table}>
+                <CameraTableHead />
+                <tbody>
+                  {group.cameras.map(camera => (
+                    <CameraRowItem
+                      key={camera.guid}
+                      camera={camera}
+                      apName={group.apId !== null ? accessPointMap.get(group.apId)?.name : undefined}
+                      onClick={onCameraClick}
+                      onDeleteRequest={setDeletingId}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
 
         <div className={pageStyles.tableFooter}>
           <button className={pageStyles.addLink} onClick={onAddCamera}>
@@ -109,13 +150,30 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
   )
 }
 
+function CameraTableHead() {
+  return (
+    <thead>
+      <tr className={pageStyles.theadRow}>
+        <th className={pageStyles.th}>КАМЕРА <span className={pageStyles.sortIcon}><SortIcon /></span></th>
+        <th className={pageStyles.th}>ПОТОК SD</th>
+        <th className={pageStyles.th}>ПОТОК HD</th>
+        <th className={pageStyles.th}>СТАТУС</th>
+        <th className={pageStyles.th}>ТОЧКА ДОСТУПА</th>
+        <th className={pageStyles.th}>ДОБАВЛЕНА</th>
+        <th className={pageStyles.th} />
+      </tr>
+    </thead>
+  )
+}
+
 interface CameraRowItemProps {
   camera: Camera
+  apName?: string
   onClick?: (id: string) => void
   onDeleteRequest: (id: string) => void
 }
 
-function CameraRowItem({ camera, onClick, onDeleteRequest }: CameraRowItemProps) {
+function CameraRowItem({ camera, apName, onClick, onDeleteRequest }: CameraRowItemProps) {
   return (
     <tr
       className={`${pageStyles.row} ${onClick ? styles.rowClickable : ''}`}
@@ -138,7 +196,7 @@ function CameraRowItem({ camera, onClick, onDeleteRequest }: CameraRowItemProps)
       </td>
       <td className={pageStyles.cell}>
         {camera.accessPointId !== null
-          ? <span className={styles.apBadge}>#{camera.accessPointId}</span>
+          ? <span className={styles.apBadge}>{apName ?? `#${camera.accessPointId}`}</span>
           : <span className={styles.dash}>—</span>
         }
       </td>

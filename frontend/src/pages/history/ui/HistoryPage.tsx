@@ -1,17 +1,23 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRecognitionHistory } from '@/entities/recognitionHistory'
+import { useAccessPoints } from '@/entities/accessPoint'
 import { formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { StatPill, SearchInput, TableSkeleton, ConfidenceBar } from '@/shared/ui'
+import { StatPill, SearchInput, TableSkeleton, ConfidenceBar, Dropdown } from '@/shared/ui'
 import pageStyles from '@/shared/ui/page.module.css'
 import styles from './HistoryPage.module.css'
 
 export function HistoryPage() {
   const [search, setSearch] = useState('')
+  const [accessPointFilter, setAccessPointFilter] = useState<number | undefined>(undefined)
 
-  const queryParams = search.length === 0 || search.length >= 2
-    ? { plateNumber: search || undefined }
-    : {}
+  const { data: accessPoints = [] } = useAccessPoints()
+  const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
+
+  const queryParams = {
+    ...(search.length === 0 || search.length >= 2 ? { plateNumber: search || undefined } : {}),
+    ...(accessPointFilter !== undefined ? { accessPointId: accessPointFilter } : {}),
+  }
 
   const { data: records = [], isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
 
@@ -34,6 +40,15 @@ export function HistoryPage() {
 
         <div className={pageStyles.toolbar}>
           <SearchInput value={search} onChange={handleSearch} placeholder="Поиск по номеру..." />
+          <Dropdown
+            wrapperStyle={{ minWidth: 180 }}
+            value={accessPointFilter ?? ''}
+            options={[
+              { value: '', label: 'Все точки доступа' },
+              ...accessPoints.map(ap => ({ value: ap.id, label: ap.name })),
+            ]}
+            onChange={v => setAccessPointFilter(v ? Number(v) : undefined)}
+          />
         </div>
 
         <div className={pageStyles.tableWrapper}>
@@ -49,7 +64,7 @@ export function HistoryPage() {
                 <tr className={pageStyles.theadRow}>
                   <th className={pageStyles.th}>ВРЕМЯ</th>
                   <th className={pageStyles.th}>НОМЕР</th>
-                  <th className={pageStyles.th}>СОВПАДЕНИЕ</th>
+                  <th className={pageStyles.th}>ДОСТУП</th>
                   <th className={pageStyles.th}>УВЕРЕННОСТЬ</th>
                   <th className={pageStyles.th}>ТОЧКА ДОСТУПА</th>
                   <th className={pageStyles.th}>КАМЕРА</th>
@@ -67,10 +82,14 @@ export function HistoryPage() {
                       <span className={styles.plateNumber}>{record.plateNumber}</span>
                     </td>
                     <td className={pageStyles.cell}>
-                      {record.plateGuid !== null ? (
-                        <span className={styles.matchBadge}>В базе</span>
-                      ) : (
+                      {record.plateGuid === null ? (
                         <span className={styles.unknownBadge}>Неизвестен</span>
+                      ) : record.accessGranted === true ? (
+                        <span className={styles.grantedBadge}>Разрешён</span>
+                      ) : record.accessGranted === false ? (
+                        <span className={styles.deniedBadge}>Запрещён</span>
+                      ) : (
+                        <span className={styles.matchBadge}>В базе</span>
                       )}
                     </td>
                     <td className={pageStyles.cell}>
@@ -78,7 +97,9 @@ export function HistoryPage() {
                     </td>
                     <td className={pageStyles.cell}>
                       {record.accessPointId !== null ? (
-                        <span className={styles.apBadge}>#{record.accessPointId}</span>
+                        <span className={styles.apBadge}>
+                          {accessPointMap.get(record.accessPointId)?.name ?? `#${record.accessPointId}`}
+                        </span>
                       ) : (
                         <span className={styles.dash}>—</span>
                       )}

@@ -1,19 +1,23 @@
-import { useState, useRef } from 'react'
-import type { Plate, CreatePlateDto, ImportPreviewRow, ImportPreviewResponse } from '@/entities/plate'
+import { useState, useRef, useMemo } from 'react'
+import type { Plate, CreatePlateDto, UpdatePlateDto, ImportPreviewRow, ImportPreviewResponse } from '@/entities/plate'
 import { usePlates, useDeletePlate, useCreatePlate, useUpdatePlate, usePreviewImport, useImportPlates } from '@/entities/plate'
+import type { AccessPoint } from '@/entities/accessPoint'
+import { useAccessPoints } from '@/entities/accessPoint'
 import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { StatPill, SearchInput, TableSkeleton, ConfirmDialog, Modal, StatusBadge } from '@/shared/ui'
+import { StatPill, SearchInput, TableSkeleton, ConfirmDialog, Modal, StatusBadge, Dropdown } from '@/shared/ui'
 import pageStyles from '@/shared/ui/page.module.css'
 import formStyles from '@/shared/ui/form.module.css'
 import styles from './PlatesPage.module.css'
 
-const EMPTY_FORM: CreatePlateDto = { number: '', region: '', accessType: 'allowed', comment: '', isEnabled: true }
+const EMPTY_FORM: CreatePlateDto = { number: '', region: '', accessType: 'allowed', comment: '', isEnabled: true, accessPointIds: [] }
 
 export function PlatesPage() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState<CreatePlateDto>(EMPTY_FORM)
+  const [editingPlate, setEditingPlate] = useState<Plate | null>(null)
+  const [editForm, setEditForm] = useState<UpdatePlateDto>({})
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -22,6 +26,8 @@ export function PlatesPage() {
   const { showToast } = useToast()
 
   const { data: plates = [], isLoading, error, refetch } = usePlates()
+  const { data: accessPoints = [] } = useAccessPoints()
+  const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
   const deletePlate = useDeletePlate()
   const createPlate = useCreatePlate()
   const updatePlate = useUpdatePlate()
@@ -90,6 +96,30 @@ export function PlatesPage() {
     updatePlate.mutate(
       { id: plate.guid, data: { isEnabled: !plate.isEnabled } },
       { onError: (err: unknown) => showToast(getErrorMessage(err)) }
+    )
+  }
+
+  const startEdit = (plate: Plate) => {
+    setEditingPlate(plate)
+    setEditForm({
+      number: plate.number,
+      region: plate.region,
+      accessType: plate.accessType,
+      comment: plate.comment,
+      isEnabled: plate.isEnabled,
+      accessPointIds: plate.accessPointIds ?? [],
+    })
+  }
+
+  const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editingPlate) return
+    updatePlate.mutate(
+      { id: editingPlate.guid, data: editForm },
+      {
+        onSuccess: () => setEditingPlate(null),
+        onError: (err: unknown) => showToast(getErrorMessage(err)),
+      }
     )
   }
 
@@ -217,12 +247,15 @@ export function PlatesPage() {
             <div className={formStyles.fieldRow}>
               <div className={formStyles.field}>
                 <label className={formStyles.label}>Тип доступа *</label>
-                <select className={formStyles.input} value={form.accessType}
-                  onChange={e => setForm(p => ({ ...p, accessType: e.target.value }))}>
-                  <option value="allowed">Разрешён</option>
-                  <option value="blocked">Заблокирован</option>
-                  <option value="vip">VIP</option>
-                </select>
+                <Dropdown
+                  value={form.accessType}
+                  options={[
+                    { value: 'allowed', label: 'Разрешён' },
+                    { value: 'blocked', label: 'Заблокирован' },
+                    { value: 'vip', label: 'VIP' },
+                  ]}
+                  onChange={v => setForm(p => ({ ...p, accessType: String(v) }))}
+                />
               </div>
               <div className={formStyles.field}>
                 <label className={formStyles.label}>Статус</label>
@@ -241,11 +274,126 @@ export function PlatesPage() {
               <input className={formStyles.input} placeholder="Необязательно" value={form.comment ?? ''}
                 onChange={e => setForm(p => ({ ...p, comment: e.target.value }))} />
             </div>
+            {accessPoints.length > 0 && (
+              <div className={formStyles.field}>
+                <label className={formStyles.label}>Ограничить точками доступа</label>
+                <div className={styles.apCheckboxList}>
+                  {accessPoints.map(ap => (
+                    <label key={ap.id} className={styles.apCheckboxItem}>
+                      <input
+                        type="checkbox"
+                        checked={(form.accessPointIds ?? []).includes(ap.id)}
+                        onChange={e => {
+                          const ids = form.accessPointIds ?? []
+                          setForm(p => ({
+                            ...p,
+                            accessPointIds: e.target.checked
+                              ? [...ids, ap.id]
+                              : ids.filter(id => id !== ap.id),
+                          }))
+                        }}
+                      />
+                      {ap.name}
+                    </label>
+                  ))}
+                </div>
+                <div className={styles.apCheckboxHint}>
+                  {(form.accessPointIds ?? []).length === 0
+                    ? 'Доступ разрешён на всех точках'
+                    : `Только на выбранных: ${(form.accessPointIds ?? []).length}`}
+                </div>
+              </div>
+            )}
             <div className={formStyles.formActions}>
               <button type="button" className={formStyles.btnOutline}
                 onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>Отмена</button>
               <button type="submit" className={formStyles.btnPrimary} disabled={createPlate.isPending}>
                 {createPlate.isPending ? 'Сохранение...' : 'Создать'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {editingPlate && (
+        <Modal title="Редактирование номера" onClose={() => setEditingPlate(null)}>
+          <form className={formStyles.form} onSubmit={handleUpdate}>
+            <div className={formStyles.fieldRow}>
+              <div className={formStyles.field}>
+                <label className={formStyles.label}>Номер *</label>
+                <input className={formStyles.input} value={editForm.number ?? ''}
+                  onChange={e => setEditForm(p => ({ ...p, number: e.target.value }))} />
+              </div>
+              <div className={formStyles.field}>
+                <label className={formStyles.label}>Регион</label>
+                <input className={formStyles.input} placeholder="77" value={editForm.region ?? ''}
+                  onChange={e => setEditForm(p => ({ ...p, region: e.target.value }))} />
+              </div>
+            </div>
+            <div className={formStyles.fieldRow}>
+              <div className={formStyles.field}>
+                <label className={formStyles.label}>Тип доступа *</label>
+                <Dropdown
+                  value={editForm.accessType ?? 'allowed'}
+                  options={[
+                    { value: 'allowed', label: 'Разрешён' },
+                    { value: 'blocked', label: 'Заблокирован' },
+                    { value: 'vip', label: 'VIP' },
+                  ]}
+                  onChange={v => setEditForm(p => ({ ...p, accessType: String(v) }))}
+                />
+              </div>
+              <div className={formStyles.field}>
+                <label className={formStyles.label}>Статус</label>
+                <div className={formStyles.toggleRow}>
+                  <button type="button"
+                    className={`${formStyles.toggleBtn} ${editForm.isEnabled ? formStyles.toggleActive : ''}`}
+                    onClick={() => setEditForm(p => ({ ...p, isEnabled: true }))}>Активен</button>
+                  <button type="button"
+                    className={`${formStyles.toggleBtn} ${!editForm.isEnabled ? formStyles.toggleInactive : ''}`}
+                    onClick={() => setEditForm(p => ({ ...p, isEnabled: false }))}>Отключён</button>
+                </div>
+              </div>
+            </div>
+            <div className={formStyles.field}>
+              <label className={formStyles.label}>Комментарий</label>
+              <input className={formStyles.input} placeholder="Необязательно" value={editForm.comment ?? ''}
+                onChange={e => setEditForm(p => ({ ...p, comment: e.target.value }))} />
+            </div>
+            {accessPoints.length > 0 && (
+              <div className={formStyles.field}>
+                <label className={formStyles.label}>Ограничить точками доступа</label>
+                <div className={styles.apCheckboxList}>
+                  {accessPoints.map(ap => (
+                    <label key={ap.id} className={styles.apCheckboxItem}>
+                      <input
+                        type="checkbox"
+                        checked={(editForm.accessPointIds ?? []).includes(ap.id)}
+                        onChange={e => {
+                          const ids = editForm.accessPointIds ?? []
+                          setEditForm(p => ({
+                            ...p,
+                            accessPointIds: e.target.checked
+                              ? [...ids, ap.id]
+                              : ids.filter(id => id !== ap.id),
+                          }))
+                        }}
+                      />
+                      {ap.name}
+                    </label>
+                  ))}
+                </div>
+                <div className={styles.apCheckboxHint}>
+                  {(editForm.accessPointIds ?? []).length === 0
+                    ? 'Доступ разрешён на всех точках'
+                    : `Только на выбранных: ${(editForm.accessPointIds ?? []).length}`}
+                </div>
+              </div>
+            )}
+            <div className={formStyles.formActions}>
+              <button type="button" className={formStyles.btnOutline} onClick={() => setEditingPlate(null)}>Отмена</button>
+              <button type="submit" className={formStyles.btnPrimary} disabled={updatePlate.isPending}>
+                {updatePlate.isPending ? 'Сохранение...' : 'Сохранить'}
               </button>
             </div>
           </form>
@@ -282,6 +430,7 @@ export function PlatesPage() {
                   <th className={pageStyles.th}>НОМЕР</th>
                   <th className={pageStyles.th}>РЕГИОН</th>
                   <th className={pageStyles.th}>ТИП ДОСТУПА</th>
+                  <th className={pageStyles.th}>ТОЧКИ ДОСТУПА</th>
                   <th className={pageStyles.th}>СТАТУС</th>
                   <th className={pageStyles.th}>ДЕЙСТВИТЕЛЕН ДО</th>
                   <th className={pageStyles.th}>ДОБАВЛЕН</th>
@@ -289,18 +438,20 @@ export function PlatesPage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <TableSkeleton rows={5} cols={7} />}
+                {isLoading && <TableSkeleton rows={5} cols={8} />}
                 {!isLoading && filtered.map(plate => (
                   <PlateRowItem
                     key={plate.guid}
                     plate={plate}
+                    accessPointMap={accessPointMap}
+                    onEdit={startEdit}
                     onDeleteRequest={setDeletingId}
                     onToggle={handleToggle}
                   />
                 ))}
                 {!isLoading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className={pageStyles.stateMessage}>
+                    <td colSpan={8} className={pageStyles.stateMessage}>
                       {search ? `По запросу «${search}» ничего не найдено` : 'Номера не найдены'}
                     </td>
                   </tr>
@@ -322,6 +473,8 @@ export function PlatesPage() {
 
 interface PlateRowItemProps {
   plate: Plate
+  accessPointMap: Map<number, AccessPoint>
+  onEdit: (plate: Plate) => void
   onDeleteRequest: (id: string) => void
   onToggle: (plate: Plate) => void
 }
@@ -372,7 +525,7 @@ function ImportPreviewRowItem({ row }: { row: ImportPreviewRow }) {
   )
 }
 
-function PlateRowItem({ plate, onDeleteRequest, onToggle }: PlateRowItemProps) {
+function PlateRowItem({ plate, accessPointMap, onEdit, onDeleteRequest, onToggle }: PlateRowItemProps) {
   return (
     <tr className={pageStyles.row}>
       <td className={pageStyles.cell}><span className={styles.plateNumber}>{plate.number}</span></td>
@@ -381,6 +534,15 @@ function PlateRowItem({ plate, onDeleteRequest, onToggle }: PlateRowItemProps) {
         <span className={styles.accessBadge} style={{ color: ACCESS_COLORS[plate.accessType] ?? '#374151' }}>
           {ACCESS_LABELS[plate.accessType] ?? plate.accessType}
         </span>
+      </td>
+      <td className={pageStyles.cell}>
+        {plate.accessPointIds && plate.accessPointIds.length > 0 ? (
+          <span className={styles.apRestriction}>
+            {plate.accessPointIds.map(id => accessPointMap.get(id)?.name ?? `#${id}`).join(', ')}
+          </span>
+        ) : (
+          <span className={styles.apAll}>Все</span>
+        )}
       </td>
       <td className={pageStyles.cell}>
         <StatusBadge
@@ -397,9 +559,16 @@ function PlateRowItem({ plate, onDeleteRequest, onToggle }: PlateRowItemProps) {
         <span className={styles.date}>{formatDate(plate.createdAt)}</span>
       </td>
       <td className={pageStyles.actionCell}>
-        <button className={pageStyles.deleteBtn} onClick={() => onDeleteRequest(plate.guid)} title="Удалить">
-          <svg width="14" height="15" viewBox="0 0 14 15" fill="none"><path d="M1 3.5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H8.5C9.05 1.5 9.5 1.95 9.5 2.5V3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M2.5 3.5L3.5 12.5C3.5 13.05 3.95 13.5 4.5 13.5H9.5C10.05 13.5 10.5 13.05 10.5 12.5L11.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </button>
+        <div className={styles.rowActions}>
+          <button className={pageStyles.deleteBtn} onClick={() => onEdit(plate)} title="Редактировать">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9.5 1.5L12.5 4.5L5 12H2V9L9.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button className={pageStyles.deleteBtn} onClick={() => onDeleteRequest(plate.guid)} title="Удалить">
+            <svg width="14" height="15" viewBox="0 0 14 15" fill="none"><path d="M1 3.5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H8.5C9.05 1.5 9.5 1.95 9.5 2.5V3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M2.5 3.5L3.5 12.5C3.5 13.05 3.95 13.5 4.5 13.5H9.5C10.05 13.5 10.5 13.05 10.5 12.5L11.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
       </td>
     </tr>
   )

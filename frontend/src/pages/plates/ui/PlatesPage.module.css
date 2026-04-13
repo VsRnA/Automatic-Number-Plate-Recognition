@@ -24,6 +24,53 @@
   font-size: 13px;
 }
 
+.apRestriction {
+  font-size: 12px;
+  color: #374151;
+}
+
+.apAll {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.apCheckboxList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+}
+
+.apCheckboxItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.apCheckboxItem input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.apCheckboxHint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
 /* CSV Import */
 .importBtn {
   padding: 7px 14px;

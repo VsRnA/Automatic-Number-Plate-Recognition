@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { Camera, UpdateCameraDto } from '@/entities/camera'
 import { cameraApi } from '@/entities/camera'
+import { useAccessPoints } from '@/entities/accessPoint'
 import { useToast, formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
+import { Dropdown } from '@/shared/ui'
 import styles from './CameraPage.module.css'
 
 interface CameraPageProps {
@@ -17,9 +19,12 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
 
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<UpdateCameraDto>({})
+  const [showAuth, setShowAuth] = useState(false)
   const [saving, setSaving] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
   const { showToast } = useToast()
+  const { data: accessPoints = [] } = useAccessPoints()
+  const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
 
   useEffect(() => {
     let cancelled = false
@@ -39,6 +44,8 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
 
   const startEditing = () => {
     if (!camera) return
+    const hasAuth = !!(camera.login)
+    setShowAuth(hasAuth)
     setForm({
       name: camera.name,
       stream: camera.stream,
@@ -68,8 +75,8 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
     cameraApi
       .update(id, {
         ...form,
-        login: form.login || null,
-        password: form.password || null,
+        login: showAuth ? (form.login || null) : null,
+        password: showAuth ? (form.password || null) : null,
       })
       .then(updated => {
         setCamera(updated)
@@ -83,13 +90,7 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
 
   const setField =
     (field: keyof UpdateCameraDto) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value =
-        field === 'accessPointId'
-          ? e.target.value
-            ? Number(e.target.value)
-            : null
-          : e.target.value
-      setForm(prev => ({ ...prev, [field]: value }))
+      setForm(prev => ({ ...prev, [field]: e.target.value }))
     }
 
   return (
@@ -155,15 +156,17 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
                   </div>
                 </div>
 
-                {camera.accessPointId !== null && (
-                  <div className={styles.section}>
-                    <div className={styles.sectionLabel}>ДОПОЛНИТЕЛЬНО</div>
-                    <div className={styles.infoItem}>
-                      <div className={styles.infoLabel}>Точка доступа</div>
-                      <div className={styles.infoValue}>#{camera.accessPointId}</div>
+                <div className={styles.section}>
+                  <div className={styles.sectionLabel}>ДОПОЛНИТЕЛЬНО</div>
+                  <div className={styles.infoItem}>
+                    <div className={styles.infoLabel}>Точка доступа</div>
+                    <div className={styles.infoValue}>
+                      {camera.accessPointId !== null
+                        ? (accessPointMap.get(camera.accessPointId)?.name ?? `#${camera.accessPointId}`)
+                        : '—'}
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
@@ -215,42 +218,56 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
                 </div>
 
                 <div className={styles.section}>
-                  <div className={styles.sectionLabel}>АВТОРИЗАЦИЯ</div>
-                  <div className={styles.fieldRow}>
-                    <div className={styles.field}>
-                      <label className={styles.label}>Логин</label>
+                  <div className={styles.sectionHeader}>
+                    <div className={styles.sectionLabel}>АВТОРИЗАЦИЯ</div>
+                    <label className={styles.authToggle}>
                       <input
-                        className={styles.input}
-                        type="text"
-                        placeholder="admin"
-                        value={form.login ?? ''}
-                        onChange={setField('login')}
+                        type="checkbox"
+                        checked={showAuth}
+                        onChange={e => setShowAuth(e.target.checked)}
                       />
-                    </div>
-                    <div className={styles.field}>
-                      <label className={styles.label}>Пароль</label>
-                      <input
-                        className={styles.input}
-                        type="password"
-                        placeholder="••••••••"
-                        value={form.password ?? ''}
-                        onChange={setField('password')}
-                      />
-                    </div>
+                      Требуется авторизация
+                    </label>
                   </div>
+                  {showAuth && (
+                    <div className={styles.fieldRow}>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Логин</label>
+                        <input
+                          className={styles.input}
+                          type="text"
+                          placeholder="admin"
+                          value={form.login ?? ''}
+                          onChange={setField('login')}
+                        />
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Пароль</label>
+                        <input
+                          className={styles.input}
+                          type="password"
+                          placeholder="••••••••"
+                          value={form.password ?? ''}
+                          onChange={setField('password')}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.section}>
                   <div className={styles.sectionLabel}>ДОПОЛНИТЕЛЬНО</div>
                   <div className={styles.fieldRow}>
                     <div className={styles.field}>
-                      <label className={styles.label}>ID точки доступа</label>
-                      <input
-                        className={styles.input}
-                        type="number"
-                        placeholder="Не задано"
+                      <label className={styles.label}>Точка доступа</label>
+                      <Dropdown
                         value={form.accessPointId ?? ''}
-                        onChange={setField('accessPointId')}
+                        options={[
+                          { value: '', label: 'Не задано' },
+                          ...accessPoints.map(ap => ({ value: ap.id, label: ap.name })),
+                        ]}
+                        onChange={v => setForm(prev => ({ ...prev, accessPointId: v ? Number(v) : null }))}
+                        placeholder="Не задано"
                       />
                     </div>
                     <div className={styles.field}>

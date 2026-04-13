@@ -7,6 +7,7 @@ export interface Plate {
   comment: string
   isEnabled: boolean
   createdAt: string
+  accessPointIds: number[]
 }
 
 export interface CreatePlateDto {
@@ -16,6 +17,7 @@ export interface CreatePlateDto {
   validUntil?: string | null
   comment?: string
   isEnabled?: boolean
+  accessPointIds?: number[]
 }
 
 export interface UpdatePlateDto {
@@ -25,6 +27,7 @@ export interface UpdatePlateDto {
   validUntil?: string | null
   comment?: string
   isEnabled?: boolean
+  accessPointIds?: number[]
 }
 
 export interface ImportRowErrors {

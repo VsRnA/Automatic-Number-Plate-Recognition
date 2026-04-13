@@ -1,25 +1,28 @@
 import { useState } from 'react'
-import type { AccessPoint, CreateAccessPointDto } from '@/entities/accessPoint'
-import { useAccessPoints, useDeleteAccessPoint, useCreateAccessPoint } from '@/entities/accessPoint'
+import type { AccessPoint, CreateAccessPointDto, UpdateAccessPointDto } from '@/entities/accessPoint'
+import { useAccessPoints, useDeleteAccessPoint, useCreateAccessPoint, useUpdateAccessPoint } from '@/entities/accessPoint'
 import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { StatPill, SearchInput, TableSkeleton, ConfirmDialog, Modal, StatusBadge } from '@/shared/ui'
+import { StatPill, SearchInput, TableSkeleton, ConfirmDialog, Modal } from '@/shared/ui'
 import pageStyles from '@/shared/ui/page.module.css'
 import formStyles from '@/shared/ui/form.module.css'
 import styles from './AccessPointsPage.module.css'
 
-const EMPTY_FORM: CreateAccessPointDto = { name: '', description: '', isEnabled: true }
+const EMPTY_FORM: CreateAccessPointDto = { name: '', description: '' }
 
 export function AccessPointsPage() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState<CreateAccessPointDto>(EMPTY_FORM)
+  const [editingAp, setEditingAp] = useState<AccessPoint | null>(null)
+  const [editForm, setEditForm] = useState<UpdateAccessPointDto>({})
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const { showToast } = useToast()
 
   const { data: items = [], isLoading, error, refetch } = useAccessPoints()
   const deleteAccessPoint = useDeleteAccessPoint()
   const createAccessPoint = useCreateAccessPoint()
+  const updateAccessPoint = useUpdateAccessPoint()
 
   const handleDelete = () => {
     if (deletingId === null) return
@@ -40,6 +43,24 @@ export function AccessPointsPage() {
         setShowAdd(false)
         setForm(EMPTY_FORM)
       },
+      onError: (err: unknown) => showToast(getErrorMessage(err)),
+    })
+  }
+
+  const startEdit = (ap: AccessPoint) => {
+    setEditingAp(ap)
+    setEditForm({ name: ap.name, description: ap.description })
+  }
+
+  const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editingAp) return
+    if (!editForm.name?.trim()) {
+      showToast('Введите название точки доступа')
+      return
+    }
+    updateAccessPoint.mutate({ id: editingAp.id, data: editForm }, {
+      onSuccess: () => setEditingAp(null),
       onError: (err: unknown) => showToast(getErrorMessage(err)),
     })
   }
@@ -74,17 +95,6 @@ export function AccessPointsPage() {
               <input className={formStyles.input} placeholder="Необязательно" value={form.description ?? ''}
                 onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
             </div>
-            <div className={formStyles.field}>
-              <label className={formStyles.label}>Статус</label>
-              <div className={formStyles.toggleRow}>
-                <button type="button"
-                  className={`${formStyles.toggleBtn} ${form.isEnabled ? formStyles.toggleActive : ''}`}
-                  onClick={() => setForm(p => ({ ...p, isEnabled: true }))}>Активна</button>
-                <button type="button"
-                  className={`${formStyles.toggleBtn} ${!form.isEnabled ? formStyles.toggleInactive : ''}`}
-                  onClick={() => setForm(p => ({ ...p, isEnabled: false }))}>Отключена</button>
-              </div>
-            </div>
             <div className={formStyles.formActions}>
               <button type="button" className={formStyles.btnOutline}
                 onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>Отмена</button>
@@ -96,10 +106,32 @@ export function AccessPointsPage() {
         </Modal>
       )}
 
+      {editingAp && (
+        <Modal title="Редактирование точки доступа" onClose={() => setEditingAp(null)}>
+          <form className={formStyles.form} onSubmit={handleUpdate}>
+            <div className={formStyles.field}>
+              <label className={formStyles.label}>Название *</label>
+              <input className={formStyles.input} value={editForm.name ?? ''}
+                onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className={formStyles.field}>
+              <label className={formStyles.label}>Описание</label>
+              <input className={formStyles.input} placeholder="Необязательно" value={editForm.description ?? ''}
+                onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className={formStyles.formActions}>
+              <button type="button" className={formStyles.btnOutline} onClick={() => setEditingAp(null)}>Отмена</button>
+              <button type="submit" className={formStyles.btnPrimary} disabled={updateAccessPoint.isPending}>
+                {updateAccessPoint.isPending ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       <div className={pageStyles.content}>
         <div className={pageStyles.statsRow}>
           <StatPill label="Всего" count={items.length} />
-          <StatPill label="Активны" count={items.filter(p => p.isEnabled).length} variant="green" />
         </div>
 
         <div className={pageStyles.toolbar}>
@@ -121,23 +153,23 @@ export function AccessPointsPage() {
                   <th className={pageStyles.th}>ID</th>
                   <th className={pageStyles.th}>НАЗВАНИЕ</th>
                   <th className={pageStyles.th}>ОПИСАНИЕ</th>
-                  <th className={pageStyles.th}>СТАТУС</th>
                   <th className={pageStyles.th}>СОЗДАНА</th>
                   <th className={pageStyles.th} />
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <TableSkeleton rows={5} cols={6} />}
+                {isLoading && <TableSkeleton rows={5} cols={5} />}
                 {!isLoading && filtered.map(ap => (
                   <AccessPointRowItem
                     key={ap.id}
                     ap={ap}
+                    onEdit={startEdit}
                     onDeleteRequest={setDeletingId}
                   />
                 ))}
                 {!isLoading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className={pageStyles.stateMessage}>
+                    <td colSpan={5} className={pageStyles.stateMessage}>
                       {search ? `По запросу «${search}» ничего не найдено` : 'Точки доступа не найдены'}
                     </td>
                   </tr>
@@ -159,27 +191,28 @@ export function AccessPointsPage() {
 
 interface AccessPointRowItemProps {
   ap: AccessPoint
+  onEdit: (ap: AccessPoint) => void
   onDeleteRequest: (id: number) => void
 }
 
-function AccessPointRowItem({ ap, onDeleteRequest }: AccessPointRowItemProps) {
+function AccessPointRowItem({ ap, onEdit, onDeleteRequest }: AccessPointRowItemProps) {
   return (
     <tr className={pageStyles.row}>
       <td className={pageStyles.cell}><span className={styles.idBadge}>#{ap.id}</span></td>
       <td className={pageStyles.cell}><span className={styles.apName}>{ap.name}</span></td>
       <td className={pageStyles.cell}><span className={styles.apDesc}>{ap.description || '—'}</span></td>
-      <td className={pageStyles.cell}>
-        <StatusBadge
-          active={ap.isEnabled}
-          activeLabel="АКТИВНА"
-          inactiveLabel="ОТКЛЮЧЕНА"
-        />
-      </td>
       <td className={pageStyles.cell}><span className={styles.date}>{formatDate(ap.createdAt)}</span></td>
       <td className={pageStyles.actionCell}>
-        <button className={pageStyles.deleteBtn} onClick={() => onDeleteRequest(ap.id)}>
-          <svg width="14" height="15" viewBox="0 0 14 15" fill="none"><path d="M1 3.5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H8.5C9.05 1.5 9.5 1.95 9.5 2.5V3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M2.5 3.5L3.5 12.5C3.5 13.05 3.95 13.5 4.5 13.5H9.5C10.05 13.5 10.5 13.05 10.5 12.5L11.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </button>
+        <div className={styles.rowActions}>
+          <button className={pageStyles.deleteBtn} onClick={() => onEdit(ap)} title="Редактировать">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9.5 1.5L12.5 4.5L5 12H2V9L9.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button className={pageStyles.deleteBtn} onClick={() => onDeleteRequest(ap.id)} title="Удалить">
+            <svg width="14" height="15" viewBox="0 0 14 15" fill="none"><path d="M1 3.5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H8.5C9.05 1.5 9.5 1.95 9.5 2.5V3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M2.5 3.5L3.5 12.5C3.5 13.05 3.95 13.5 4.5 13.5H9.5C10.05 13.5 10.5 13.05 10.5 12.5L11.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
       </td>
     </tr>
   )

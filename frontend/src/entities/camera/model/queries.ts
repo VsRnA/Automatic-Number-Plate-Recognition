@@ -41,6 +41,6 @@ export const useUpdateCamera = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateCameraDto }) => cameraApi.update(id, data),
-    onSuccess: (_data, { id }) => qc.invalidateQueries({ queryKey: cameraKeys.detail(id) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: cameraKeys.all }),
   })
 }

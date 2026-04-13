@@ -22,3 +22,10 @@
   color: #6b7280;
   font-size: 13px;
 }
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}

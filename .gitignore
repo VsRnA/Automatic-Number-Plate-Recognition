@@ -2,6 +2,7 @@
 CLAUDE.md
 CLAUDE*.md
 docs
+.claude
 
 #ML models
 /service-recognition/models
