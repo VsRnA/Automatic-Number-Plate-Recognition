@@ -81,8 +81,7 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 		Limit:      100,
 	})
 	if err != nil {
-		log.Printf("RecognitionWorker: failed to load recent records for dedup: %v", err)
-		recentRecords = nil
+		return fmt.Errorf("RecognitionWorker: failed to load recent records for dedup: %w", err)
 	}
 
 	for _, plate := range payload.Plates {
