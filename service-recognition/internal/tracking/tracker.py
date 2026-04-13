@@ -246,6 +246,10 @@ class Tracker:
 
     def _build_confirmed(self, track: Track, text: str, conf: float) -> ConfirmedDetection | None:
         now = time.monotonic()
+
+        cutoff = now - self._cooldown_seconds * 2
+        self._last_published = {k: v for k, v in self._last_published.items() if v > cutoff}
+
         last = self._last_published.get(text)
         if last is not None and now - last < self._cooldown_seconds:
             logger.debug(
