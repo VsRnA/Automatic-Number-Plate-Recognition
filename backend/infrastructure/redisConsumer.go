@@ -87,6 +87,7 @@ func (c *RedisConsumer) poll(ctx context.Context) {
 
 			if err := c.handler.Handle(ctx, data); err != nil {
 				log.Printf("RedisConsumer: handler error for message %s: %v", msg.ID, err)
+				continue
 			}
 			c.ack(ctx, msg.ID)
 		}
