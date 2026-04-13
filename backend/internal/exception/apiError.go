@@ -15,6 +15,7 @@ const (
 	ErrClientAuth               Code = "ERR_CLIENT_AUTH"
 	ErrClientEntityAlreadyExist Code = "ERR_CLIENT_ENTITY_ALREADY_EXIST"
 	ErrClientEntityNotFound     Code = "ERR_CLIENT_ENTITY_NOT_FOUND"
+	ErrServiceUnavailable       Code = "ERR_SERVICE_UNAVAILABLE"
 )
 
 type ApiError struct {
@@ -79,5 +80,14 @@ func AuthError(message string) *ApiError {
 		Message: message,
 		Code:    ErrClientAuth,
 		Status:  http.StatusUnauthorized,
+	}
+}
+
+func ServiceUnavailableError(message string) *ApiError {
+	return &ApiError{
+		Guid:    uuid.NewString(),
+		Message: message,
+		Code:    ErrServiceUnavailable,
+		Status:  http.StatusServiceUnavailable,
 	}
 }

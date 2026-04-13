@@ -88,6 +88,11 @@ func (h *CameraHandler) CreateCamera(c *gin.Context) {
 		camera.IsEnabled = *req.IsEnabled
 	}
 
+	if camera.IsEnabled && h.camera.recognitionClient == nil {
+		exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable"))
+		return
+	}
+
 	if err := h.camera.repo.Create(camera); err != nil {
 		exception.HttpResponseException(c, exception.InternalError("failed camera creating: "+err.Error()))
 		return
@@ -95,7 +100,10 @@ func (h *CameraHandler) CreateCamera(c *gin.Context) {
 
 	if camera.IsEnabled {
 		if err := h.startWorker(c.Request.Context(), camera); err != nil {
-			log.Printf("Warning: failed to start worker for camera %s: %v", camera.Guid, err)
+			camera.IsEnabled = false
+			_ = h.camera.repo.Update(camera)
+			exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable: "+err.Error()))
+			return
 		}
 	}
 
@@ -186,8 +194,17 @@ func (h *CameraHandler) UpdateCamera(c *gin.Context) {
 
 	if req.IsEnabled != nil && wasEnabled != camera.IsEnabled {
 		if camera.IsEnabled {
+			if h.camera.recognitionClient == nil {
+				camera.IsEnabled = false
+				_ = h.camera.repo.Update(camera)
+				exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable"))
+				return
+			}
 			if err := h.startWorker(c.Request.Context(), camera); err != nil {
-				log.Printf("Warning: failed to start worker for camera %s: %v", camera.Guid, err)
+				camera.IsEnabled = false
+				_ = h.camera.repo.Update(camera)
+				exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable: "+err.Error()))
+				return
 			}
 		} else {
 			if err := h.stopWorker(c.Request.Context(), camera.Guid.String()); err != nil {
