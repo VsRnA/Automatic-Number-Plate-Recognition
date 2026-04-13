@@ -8,6 +8,9 @@ import (
 
 func NewRedisClient(host, port string) *redis.Client {
 	return redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", host, port),
+		Addr:         fmt.Sprintf("%s:%s", host, port),
+		PoolSize:     10,
+		MinIdleConns: 2,
+		MaxRetries:   3,
 	})
 }
