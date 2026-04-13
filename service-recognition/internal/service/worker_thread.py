@@ -1,3 +1,4 @@
+import concurrent.futures
 import logging
 import socket
 import threading
@@ -42,6 +43,10 @@ class WorkerThread(threading.Thread):
 
         self._stop_event = threading.Event()
         self._frame_count = 0
+        self._upload_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=2,
+            thread_name_prefix=f"s3-upload-{worker.camera_id[:8]}",
+        )
 
         self._tracker = Tracker(
             stale_frames=tracker_stale_frames,
@@ -133,7 +138,8 @@ class WorkerThread(threading.Thread):
         detections = self.recognition_service.process_frame(frame)
         confirmed_list = self._tracker.update(detections)
         for confirmed in confirmed_list:
-            self._publish_confirmed(confirmed)
+            future = self._upload_executor.submit(self._publish_confirmed, confirmed)
+            future.add_done_callback(self._on_publish_done)
 
     def _publish_confirmed(self, confirmed: ConfirmedDetection):
         frame = confirmed.best_frame
@@ -199,6 +205,14 @@ class WorkerThread(threading.Thread):
             timestamp=datetime.now(timezone.utc),
         )
 
+    def _on_publish_done(self, future: concurrent.futures.Future) -> None:
+        try:
+            future.result()
+        except Exception as e:
+            logger.error(
+                f"Camera {self.worker.camera_id}: publish task failed: {e}", exc_info=True
+            )
+
     def stop(self, timeout: float = 5.0):
         self._stop_event.set()
         self.join(timeout)
@@ -208,9 +222,7 @@ class WorkerThread(threading.Thread):
             )
 
         for confirmed in self._tracker.flush():
-            try:
-                self._publish_confirmed(confirmed)
-            except Exception:
-                logger.warning(
-                    f"Failed to publish flushed plate for camera {self.worker.camera_id}"
-                )
+            future = self._upload_executor.submit(self._publish_confirmed, confirmed)
+            future.add_done_callback(self._on_publish_done)
+
+        self._upload_executor.shutdown(wait=True)
