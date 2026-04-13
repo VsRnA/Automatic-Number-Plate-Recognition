@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     tracker_min_iou: float = 0.3
     tracker_min_readings: int = 3
     tracker_cooldown_seconds: float = 30.0
+    tracker_text_match_enabled: bool = False
 
     plate_min_width: int = 128
     plate_min_height: int = 32
