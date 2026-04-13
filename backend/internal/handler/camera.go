@@ -101,7 +101,9 @@ func (h *CameraHandler) CreateCamera(c *gin.Context) {
 	if camera.IsEnabled {
 		if err := h.startWorker(c.Request.Context(), camera); err != nil {
 			camera.IsEnabled = false
-			_ = h.camera.repo.Update(camera)
+			if rollbackErr := h.camera.repo.Update(camera); rollbackErr != nil {
+				log.Printf("Warning: failed to rollback camera %s enabled state: %v", camera.Guid, rollbackErr)
+			}
 			exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable: "+err.Error()))
 			return
 		}
@@ -196,13 +198,17 @@ func (h *CameraHandler) UpdateCamera(c *gin.Context) {
 		if camera.IsEnabled {
 			if h.camera.recognitionClient == nil {
 				camera.IsEnabled = false
-				_ = h.camera.repo.Update(camera)
+				if rollbackErr := h.camera.repo.Update(camera); rollbackErr != nil {
+					log.Printf("Warning: failed to rollback camera %s enabled state: %v", camera.Guid, rollbackErr)
+				}
 				exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable"))
 				return
 			}
 			if err := h.startWorker(c.Request.Context(), camera); err != nil {
 				camera.IsEnabled = false
-				_ = h.camera.repo.Update(camera)
+				if rollbackErr := h.camera.repo.Update(camera); rollbackErr != nil {
+					log.Printf("Warning: failed to rollback camera %s enabled state: %v", camera.Guid, rollbackErr)
+				}
 				exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable: "+err.Error()))
 				return
 			}
