@@ -60,6 +60,7 @@ def run() -> None:
         roi_h_percent=settings.roi_h_percent,
         plate_min_width=settings.plate_min_width,
         plate_min_height=settings.plate_min_height,
+        plate_pattern=settings.plate_pattern,
     )
     worker_manager = WorkerManager(
         recognition_service=recognition_service,

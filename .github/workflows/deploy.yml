@@ -61,3 +61,5 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
+            sleep 15
+            curl --fail --retry 3 http://localhost:8080/health || exit 1

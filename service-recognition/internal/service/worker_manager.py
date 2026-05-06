@@ -4,6 +4,7 @@ from datetime import datetime
 
 from internal.config.config import Settings
 from internal.model.worker import Worker, WorkerStatus
+from internal.model.zone import WorkerZoneConfig
 from internal.service.recognition_service import RecognitionService
 from internal.service.worker_thread import WorkerThread
 from infrastructure.storage.redis_producer import RedisProducer
@@ -26,7 +27,7 @@ class WorkerManager:
         self._redis_producer = redis_producer
         self._settings = settings
 
-    def start_worker(self, camera_id: str, stream: str) -> tuple[bool, str]:
+    def start_worker(self, camera_id: str, stream: str, zone: WorkerZoneConfig | None = None) -> tuple[bool, str]:
         with self._lock:
             if camera_id in self._workers:
                 worker = self._workers[camera_id]
@@ -54,6 +55,7 @@ class WorkerManager:
                 tracker_min_readings=self._settings.tracker_min_readings,
                 tracker_cooldown_seconds=self._settings.tracker_cooldown_seconds,
                 tracker_text_match_enabled=self._settings.tracker_text_match_enabled,
+                zone=zone,
             )
             self._threads[camera_id] = thread
             thread.start()

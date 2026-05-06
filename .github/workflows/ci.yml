@@ -54,3 +54,24 @@ jobs:
       - name: Build
         working-directory: ./frontend
         run: npm run build
+
+  service-recognition:
+    name: Service Recognition (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linter and test tools
+        run: pip install ruff pytest
+
+      - name: Lint
+        run: ruff check service-recognition/
+
+      - name: Test
+        if: hashFiles('service-recognition/tests/') != ''
+        run: pytest service-recognition/tests/ -v

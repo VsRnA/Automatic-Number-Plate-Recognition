@@ -4,10 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/exception"
@@ -62,9 +64,11 @@ func Auth(cfg config.Config, tokenRepo repository.IApiTokenRepository) gin.Handl
 				return
 			}
 
-			go func() {
-				_ = tokenRepo.UpdateLastUsed(token.ID, time.Now())
-			}()
+			go func(id uuid.UUID) {
+				if err := tokenRepo.UpdateLastUsed(id, time.Now()); err != nil {
+					log.Printf("auth: failed to update last_used for token %v: %v", id, err)
+				}
+			}(token.ID)
 
 			c.Next()
 			return

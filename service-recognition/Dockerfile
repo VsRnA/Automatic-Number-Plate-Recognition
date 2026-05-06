@@ -16,7 +16,14 @@ RUN apt-get update && apt-get install -y \
     libswscale-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install torch + torchvision CPU-only before other deps to avoid pulling CUDA builds (~2 GB)
+# Both must come from the same index to guarantee version compatibility
+RUN pip install --no-cache-dir \
+    "torch==2.5.1" \
+    "torchvision==0.20.1" \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

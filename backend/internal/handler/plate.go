@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/exception"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/model"
@@ -35,15 +36,17 @@ type PlateHandler struct {
 }
 
 type plateDeps struct {
-	repo   repository.IPlateRepository
+	repo    repository.IPlateRepository
 	papRepo repository.IPlateAccessPointRepository
+	db      *gorm.DB
 }
 
-func NewPlateHandler(repo repository.IPlateRepository, papRepo repository.IPlateAccessPointRepository, validate *validator.Validate) IPlateHandler {
+func NewPlateHandler(repo repository.IPlateRepository, papRepo repository.IPlateAccessPointRepository, validate *validator.Validate, db *gorm.DB) IPlateHandler {
 	return &PlateHandler{
 		plate: &plateDeps{
 			repo:    repo,
 			papRepo: papRepo,
+			db:      db,
 		},
 		validate: validate,
 		entity:   "plate",
@@ -73,12 +76,12 @@ func (h *PlateHandler) buildResponse(plate *model.Plate) model.PlateResponse {
 	return resp
 }
 
-func (h *PlateHandler) syncAccessPoints(plateGuid uuid.UUID, ids []int) error {
-	if err := h.plate.papRepo.DeleteByPlate(plateGuid); err != nil {
+func (h *PlateHandler) syncAccessPoints(papRepo repository.IPlateAccessPointRepository, plateGuid uuid.UUID, ids []int) error {
+	if err := papRepo.DeleteByPlate(plateGuid); err != nil {
 		return err
 	}
 	for _, apId := range ids {
-		if err := h.plate.papRepo.Create(&model.PlateAccessPoint{
+		if err := papRepo.Create(&model.PlateAccessPoint{
 			PlateGuid:     plateGuid,
 			AccessPointId: apId,
 		}); err != nil {
@@ -118,16 +121,19 @@ func (h *PlateHandler) CreatePlate(c *gin.Context) {
 		plate.IsEnabled = *req.IsEnabled
 	}
 
-	if err := h.plate.repo.Create(plate); err != nil {
+	if err := h.plate.db.Transaction(func(tx *gorm.DB) error {
+		plateRepo := repository.NewPlateRepository(tx)
+		papRepo := repository.NewPlateAccessPointRepository(tx)
+		if err := plateRepo.Create(plate); err != nil {
+			return err
+		}
+		if len(req.AccessPointIds) > 0 {
+			return h.syncAccessPoints(papRepo, plate.Guid, req.AccessPointIds)
+		}
+		return nil
+	}); err != nil {
 		exception.HttpResponseException(c, exception.InternalError("failed plate creating: "+err.Error()))
 		return
-	}
-
-	if len(req.AccessPointIds) > 0 {
-		if err := h.syncAccessPoints(plate.Guid, req.AccessPointIds); err != nil {
-			exception.HttpResponseException(c, exception.InternalError("failed to set access points: "+err.Error()))
-			return
-		}
 	}
 
 	c.JSON(http.StatusCreated, h.buildResponse(plate))
@@ -197,16 +203,19 @@ func (h *PlateHandler) UpdatePlate(c *gin.Context) {
 		plate.IsEnabled = *req.IsEnabled
 	}
 
-	if err := h.plate.repo.Update(plate); err != nil {
+	if err := h.plate.db.Transaction(func(tx *gorm.DB) error {
+		plateRepo := repository.NewPlateRepository(tx)
+		if err := plateRepo.Update(plate); err != nil {
+			return err
+		}
+		if req.AccessPointIds != nil {
+			papRepo := repository.NewPlateAccessPointRepository(tx)
+			return h.syncAccessPoints(papRepo, plate.Guid, *req.AccessPointIds)
+		}
+		return nil
+	}); err != nil {
 		exception.HttpResponseException(c, exception.InternalError("failed update plate: "+err.Error()))
 		return
-	}
-
-	if req.AccessPointIds != nil {
-		if err := h.syncAccessPoints(plate.Guid, *req.AccessPointIds); err != nil {
-			exception.HttpResponseException(c, exception.InternalError("failed to update access points: "+err.Error()))
-			return
-		}
 	}
 
 	c.JSON(http.StatusOK, h.buildResponse(plate))

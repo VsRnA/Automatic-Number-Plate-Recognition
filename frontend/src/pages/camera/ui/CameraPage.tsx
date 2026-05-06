@@ -1,40 +1,50 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import type { Camera, UpdateCameraDto } from '@/entities/camera'
-import { cameraApi } from '@/entities/camera'
+import { cameraApi, useCameraSnapshot } from '@/entities/camera'
 import { useAccessPoints } from '@/entities/accessPoint'
-import { useToast, formatDateTime } from '@/shared/lib'
+import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { Dropdown } from '@/shared/ui'
-import styles from './CameraPage.module.css'
+import { Icon, Toggle, PageHeader, StatusDot, ZoneEditor } from '@/shared/ui'
+import type { ZoneConfig } from '@/shared/ui'
 
-interface CameraPageProps {
-  id: string
-  onBack: () => void
-}
-
-export function CameraPage({ id, onBack }: CameraPageProps) {
+export function CameraPage() {
+  const { id = '' } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [camera, setCamera] = useState<Camera | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<UpdateCameraDto>({})
   const [showAuth, setShowAuth] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [validationError, setValidationError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [zone, setZone] = useState<ZoneConfig | null>(null)
+  const { snapshotUrl, snapshotLoading } = useCameraSnapshot(id)
   const { showToast } = useToast()
   const { data: accessPoints = [] } = useAccessPoints()
-  const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
 
   useEffect(() => {
     let cancelled = false
     cameraApi
       .get(id)
       .then(data => {
-        if (!cancelled) setCamera(data)
+        if (!cancelled) {
+          setCamera(data)
+          setShowAuth(!!(data.login))
+          setForm({
+            name: data.name,
+            stream: data.stream,
+            streamHd: data.streamHd,
+            login: data.login ?? '',
+            password: data.password ?? '',
+            accessPointId: data.accessPointId,
+            isEnabled: data.isEnabled,
+          })
+        }
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(getErrorMessage(err))
+        if (!cancelled) setLoadError(getErrorMessage(err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -42,271 +52,220 @@ export function CameraPage({ id, onBack }: CameraPageProps) {
     return () => { cancelled = true }
   }, [id])
 
-  const startEditing = () => {
-    if (!camera) return
-    const hasAuth = !!(camera.login)
-    setShowAuth(hasAuth)
-    setForm({
-      name: camera.name,
-      stream: camera.stream,
-      streamHd: camera.streamHd,
-      login: camera.login ?? '',
-      password: camera.password ?? '',
-      accessPointId: camera.accessPointId,
-      isEnabled: camera.isEnabled,
-    })
-    setValidationError(null)
-    setEditing(true)
+  const set = (field: keyof UpdateCameraDto, value: unknown) =>
+    setForm(prev => ({ ...prev, [field]: value }))
+
+  const validate = (): Record<string, string> => {
+    const e: Record<string, string> = {}
+    if (!form.name?.trim()) e.name = 'Обязательное поле'
+    if (!form.stream?.trim()) e.stream = 'Укажите RTSP-адрес потока'
+    if (!form.streamHd?.trim()) e.streamHd = 'Укажите RTSP-адрес потока'
+    return e
   }
 
-  const cancelEditing = () => {
-    setEditing(false)
-    setValidationError(null)
-  }
-
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!form.name?.trim() || !form.stream?.trim() || !form.streamHd?.trim()) {
-      setValidationError('Заполните обязательные поля: название, поток SD и поток HD')
-      return
-    }
+  const handleSave = async () => {
+    const e = validate()
+    setErrors(e)
+    if (Object.keys(e).length > 0) return
     setSaving(true)
-    setValidationError(null)
-    cameraApi
-      .update(id, {
+    try {
+      const updated = await cameraApi.update(id, {
         ...form,
         login: showAuth ? (form.login || null) : null,
         password: showAuth ? (form.password || null) : null,
+        metadata: { ...(camera?.metadata ?? {}), ...(zone ? { zone } : {}) },
       })
-      .then(updated => {
-        setCamera(updated)
-        setEditing(false)
-      })
-      .catch((err: unknown) => {
-        showToast(getErrorMessage(err))
-      })
-      .finally(() => setSaving(false))
+      setCamera(updated)
+      showToast('Камера обновлена')
+    } catch (err) {
+      showToast(getErrorMessage(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const setField =
-    (field: keyof UpdateCameraDto) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      setForm(prev => ({ ...prev, [field]: e.target.value }))
+  const handleDelete = async () => {
+    if (!confirm(`Удалить камеру «${camera?.name}»? Это действие нельзя отменить.`)) return
+    try {
+      await cameraApi.delete(id)
+      navigate('/cameras')
+    } catch (err) {
+      showToast(getErrorMessage(err))
     }
+  }
+
+  if (loading) {
+    return (
+      <>
+        <PageHeader title="Загрузка…" crumbs="Камеры" />
+        <div className="content">
+          <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--fg-subtle)' }}>Загрузка камеры…</div>
+        </div>
+      </>
+    )
+  }
+
+  if (loadError || !camera) {
+    return (
+      <>
+        <PageHeader title="Ошибка" crumbs="Камеры" actions={<button className="btn" onClick={() => navigate('/cameras')}>← Назад</button>} />
+        <div className="content">
+          <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--danger)' }}>{loadError ?? 'Камера не найдена'}</div>
+        </div>
+      </>
+    )
+  }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.content}>
-        <div className={styles.topBar}>
-          <button className={styles.backLink} onClick={onBack}>← Камеры</button>
-          {!loading && !error && camera && !editing && (
-            <button className={styles.btnOutline} onClick={startEditing}>Редактировать</button>
-          )}
-        </div>
-        {loading && <div className={styles.stateMessage}>Загрузка...</div>}
-        {error && <div className={styles.stateError}>{error}</div>}
+    <>
+      <PageHeader
+        title={camera.name}
+        crumbs={`Камеры · Редактирование`}
+        actions={
+          <>
+            <button
+              className="btn"
+              style={{ color: 'var(--danger)' }}
+              onClick={handleDelete}
+            >
+              <Icon name="trash" /> Удалить
+            </button>
+            <button className="btn" onClick={() => navigate('/cameras')}>Отмена</button>
+            <button className="btn btn-accent" onClick={handleSave} disabled={saving}>
+              {saving ? 'Сохранение…' : 'Сохранить'}
+            </button>
+          </>
+        }
+      />
 
-        {!loading && !error && camera && !editing && (
-          <div className={styles.viewWrapper}>
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <div className={styles.cameraTitle}>
-                  <div className={styles.cameraTitleName}>{camera.name}</div>
-                  <span className={camera.isEnabled ? styles.badgeActive : styles.badgeDisabled}>
-                    <span
-                      className={styles.badgeDot}
-                      style={{ backgroundColor: camera.isEnabled ? '#22c55e' : '#9ca3af' }}
-                    />
-                    {camera.isEnabled ? 'АКТИВНА' : 'ОТКЛЮЧЕНА'}
-                  </span>
-                </div>
-                <div className={styles.cameraDates}>
-                  <span>Добавлена: {formatDateTime(camera.createdAt)}</span>
-                  <span>Обновлена: {formatDateTime(camera.updatedAt)}</span>
+      <div className="content">
+        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Основное */}
+          <div className="card">
+            <div className="section-header">
+              <div className="section-title">Основное</div>
+              <StatusDot kind={camera.isEnabled ? 'active' : 'off'} label={camera.isEnabled ? 'Активна' : 'Отключена'} />
+            </div>
+            <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="field">
+                <label>Название</label>
+                <input
+                  className={`input ${errors.name ? 'has-error' : ''}`}
+                  placeholder="Например: Главные ворота — въезд"
+                  value={form.name ?? ''}
+                  onChange={e => set('name', e.target.value)}
+                />
+                {errors.name && <div className="field-error">{errors.name}</div>}
+              </div>
+              <div className="field">
+                <label>Точка доступа</label>
+                <select
+                  className="select"
+                  value={form.accessPointId ?? ''}
+                  onChange={e => set('accessPointId', e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">— Без привязки —</option>
+                  {accessPoints.map(ap => (
+                    <option key={ap.id} value={ap.id}>{ap.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>Активна</div>
+                    <div className="text-xs text-subtle">Если выключена, кадры не обрабатываются</div>
+                  </div>
+                  <Toggle on={form.isEnabled ?? true} onChange={v => set('isEnabled', v)} />
                 </div>
               </div>
-
-              <div className={styles.cardBody}>
-                <div className={styles.section}>
-                  <div className={styles.sectionLabel}>RTSP ПОТОКИ</div>
-                  <div className={styles.infoGrid}>
-                    <div className={styles.infoItem}>
-                      <div className={styles.infoLabel}>Поток SD</div>
-                      <div className={styles.infoValue}>{camera.stream}</div>
-                    </div>
-                    <div className={styles.infoItem}>
-                      <div className={styles.infoLabel}>Поток HD</div>
-                      <div className={styles.infoValue}>{camera.streamHd}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.section}>
-                  <div className={styles.sectionLabel}>АВТОРИЗАЦИЯ</div>
-                  <div className={styles.infoGrid}>
-                    <div className={styles.infoItem}>
-                      <div className={styles.infoLabel}>Логин</div>
-                      <div className={styles.infoValue}>{camera.login ?? '—'}</div>
-                    </div>
-                    <div className={styles.infoItem}>
-                      <div className={styles.infoLabel}>Пароль</div>
-                      <div className={styles.infoValue}>
-                        {camera.password ? '••••••••' : '—'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.section}>
-                  <div className={styles.sectionLabel}>ДОПОЛНИТЕЛЬНО</div>
-                  <div className={styles.infoItem}>
-                    <div className={styles.infoLabel}>Точка доступа</div>
-                    <div className={styles.infoValue}>
-                      {camera.accessPointId !== null
-                        ? (accessPointMap.get(camera.accessPointId)?.name ?? `#${camera.accessPointId}`)
-                        : '—'}
-                    </div>
-                  </div>
-                </div>
+              <div className="text-xs text-subtle">
+                Добавлена: {formatDate(camera.createdAt)} · Обновлена: {formatDate(camera.updatedAt)}
               </div>
             </div>
           </div>
-        )}
 
-        {!loading && !error && camera && editing && (
-          <div className={styles.editWrapper}>
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <span className={styles.cardTitle}>Редактирование камеры</span>
+          {/* RTSP потоки */}
+          <div className="card">
+            <div className="section-header">
+              <div className="section-title">Видеопотоки RTSP</div>
+              <div className="section-meta">SD — распознавание, HD — снимки</div>
+            </div>
+            <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="field">
+                <label>SD поток (распознавание)</label>
+                <input
+                  className={`input mono ${errors.stream ? 'has-error' : ''}`}
+                  value={form.stream ?? ''}
+                  onChange={e => set('stream', e.target.value)}
+                  placeholder="rtsp://login:pass@host:554/..."
+                />
+                {errors.stream && <div className="field-error">{errors.stream}</div>}
               </div>
+              <div className="field">
+                <label>HD поток (снимок)</label>
+                <input
+                  className={`input mono ${errors.streamHd ? 'has-error' : ''}`}
+                  value={form.streamHd ?? ''}
+                  onChange={e => set('streamHd', e.target.value)}
+                  placeholder="rtsp://login:pass@host:554/..."
+                />
+                {errors.streamHd && <div className="field-error">{errors.streamHd}</div>}
+              </div>
+            </div>
+          </div>
 
-              <form className={styles.form} onSubmit={handleSave}>
-                <div className={styles.section}>
-                  <div className={styles.sectionLabel}>ОСНОВНОЕ</div>
-                  <div className={styles.field}>
-                    <label className={styles.label}>Название *</label>
+          {/* Авторизация */}
+          <div className="card">
+            <div className="section-header">
+              <div>
+                <div className="section-title">Авторизация</div>
+                <div className="text-xs text-subtle" style={{ marginTop: 2 }}>Логин и пароль для RTSP-потока</div>
+              </div>
+              <Toggle on={showAuth} onChange={setShowAuth} aria-label="Требуется авторизация" />
+            </div>
+            {showAuth && (
+              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="field-row cols-2">
+                  <div className="field">
+                    <label>Логин</label>
                     <input
-                      className={styles.input}
-                      type="text"
-                      value={form.name ?? ''}
-                      onChange={setField('name')}
+                      className="input"
+                      placeholder="admin"
+                      value={form.login ?? ''}
+                      onChange={e => set('login', e.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Пароль</label>
+                    <input
+                      className="input"
+                      type="password"
+                      placeholder="••••••••"
+                      value={form.password ?? ''}
+                      onChange={e => set('password', e.target.value)}
                     />
                   </div>
                 </div>
-
-                <div className={styles.section}>
-                  <div className={styles.sectionLabel}>RTSP ПОТОКИ</div>
-                  <div className={styles.fieldRow}>
-                    <div className={styles.field}>
-                      <label className={styles.label}>Поток SD *</label>
-                      <input
-                        className={styles.input}
-                        type="text"
-                        value={form.stream ?? ''}
-                        onChange={setField('stream')}
-                      />
-                    </div>
-                    <div className={styles.field}>
-                      <label className={styles.label}>Поток HD *</label>
-                      <input
-                        className={styles.input}
-                        type="text"
-                        value={form.streamHd ?? ''}
-                        onChange={setField('streamHd')}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.section}>
-                  <div className={styles.sectionHeader}>
-                    <div className={styles.sectionLabel}>АВТОРИЗАЦИЯ</div>
-                    <label className={styles.authToggle}>
-                      <input
-                        type="checkbox"
-                        checked={showAuth}
-                        onChange={e => setShowAuth(e.target.checked)}
-                      />
-                      Требуется авторизация
-                    </label>
-                  </div>
-                  {showAuth && (
-                    <div className={styles.fieldRow}>
-                      <div className={styles.field}>
-                        <label className={styles.label}>Логин</label>
-                        <input
-                          className={styles.input}
-                          type="text"
-                          placeholder="admin"
-                          value={form.login ?? ''}
-                          onChange={setField('login')}
-                        />
-                      </div>
-                      <div className={styles.field}>
-                        <label className={styles.label}>Пароль</label>
-                        <input
-                          className={styles.input}
-                          type="password"
-                          placeholder="••••••••"
-                          value={form.password ?? ''}
-                          onChange={setField('password')}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className={styles.section}>
-                  <div className={styles.sectionLabel}>ДОПОЛНИТЕЛЬНО</div>
-                  <div className={styles.fieldRow}>
-                    <div className={styles.field}>
-                      <label className={styles.label}>Точка доступа</label>
-                      <Dropdown
-                        value={form.accessPointId ?? ''}
-                        options={[
-                          { value: '', label: 'Не задано' },
-                          ...accessPoints.map(ap => ({ value: ap.id, label: ap.name })),
-                        ]}
-                        onChange={v => setForm(prev => ({ ...prev, accessPointId: v ? Number(v) : null }))}
-                        placeholder="Не задано"
-                      />
-                    </div>
-                    <div className={styles.field}>
-                      <label className={styles.label}>Статус</label>
-                      <div className={styles.toggleRow}>
-                        <button
-                          type="button"
-                          className={`${styles.toggleBtn} ${form.isEnabled ? styles.toggleActive : ''}`}
-                          onClick={() => setForm(prev => ({ ...prev, isEnabled: true }))}
-                        >
-                          Активна
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.toggleBtn} ${!form.isEnabled ? styles.toggleInactive : ''}`}
-                          onClick={() => setForm(prev => ({ ...prev, isEnabled: false }))}
-                        >
-                          Отключена
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {validationError && <div className={styles.error}>{validationError}</div>}
-
-                <div className={styles.actions}>
-                  <button type="button" className={styles.btnOutline} onClick={cancelEditing}>
-                    Отмена
-                  </button>
-                  <button type="submit" className={styles.btnPrimary} disabled={saving}>
-                    {saving ? 'Сохранение...' : 'Сохранить изменения'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Область распознавания */}
+          {camera && (
+            <ZoneEditor
+              key={camera.guid}
+              isEnabled={form.isEnabled ?? true}
+              snapshotUrl={snapshotUrl}
+              snapshotLoading={snapshotLoading}
+              defaultValue={camera.metadata?.zone as ZoneConfig | undefined}
+              onChange={setZone}
+            />
+          )}
+
+        </div>
       </div>
-    </div>
+    </>
   )
 }

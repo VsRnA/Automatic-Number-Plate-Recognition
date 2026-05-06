@@ -17,9 +17,23 @@ type RecognitionClient struct {
 func NewRecognitionClient(host, port string) (*RecognitionClient, error) {
 	addr := fmt.Sprintf("%s:%s", host, port)
 
+	const retryPolicy = `{
+		"methodConfig": [{
+			"name": [{}],
+			"retryPolicy": {
+				"maxAttempts": 3,
+				"initialBackoff": "0.5s",
+				"maxBackoff": "5s",
+				"backoffMultiplier": 1.5,
+				"retryableStatusCodes": ["UNAVAILABLE"]
+			}
+		}]
+	}`
+
 	conn, err := grpc.NewClient(
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(retryPolicy),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallSendMsgSize(256*1024*1024),
 			grpc.MaxCallRecvMsgSize(256*1024*1024),
@@ -67,10 +81,11 @@ func (c *RecognitionClient) TestRecognizeVideo(ctx context.Context, videoData []
 	})
 }
 
-func (c *RecognitionClient) StartWorker(ctx context.Context, cameraID, stream string) (*pb.StartWorkerResponse, error) {
+func (c *RecognitionClient) StartWorker(ctx context.Context, cameraID, stream string, zone *pb.ZoneConfig) (*pb.StartWorkerResponse, error) {
 	return c.client.StartWorker(ctx, &pb.StartWorkerRequest{
 		CameraId: cameraID,
 		Stream:   stream,
+		Zone:     zone,
 	})
 }
 

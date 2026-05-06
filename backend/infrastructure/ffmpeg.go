@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +10,23 @@ import (
 	"sync"
 	"time"
 )
+
+func GrabSnapshot(stream string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffmpeg",
+		"-rtsp_transport", "tcp",
+		"-i", stream,
+		"-vframes", "1",
+		"-f", "image2",
+		"-vcodec", "mjpeg",
+		"-loglevel", "quiet",
+		"pipe:1",
+	)
+
+	return cmd.Output()
+}
 
 type streamInfo struct {
 	cmd       *exec.Cmd

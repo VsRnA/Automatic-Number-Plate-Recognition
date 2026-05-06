@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cameraApi } from '../api/cameraApi'
 import type { CreateCameraDto, UpdateCameraDto } from '../api/cameraApi'
@@ -43,4 +44,39 @@ export const useUpdateCamera = () => {
     mutationFn: ({ id, data }: { id: string; data: UpdateCameraDto }) => cameraApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: cameraKeys.all }),
   })
+}
+
+export function useCameraSnapshot(cameraId: string | undefined) {
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null)
+  const [snapshotLoading, setSnapshotLoading] = useState(false)
+
+  useEffect(() => {
+    if (!cameraId) return
+    let objectUrl: string | null = null
+    let cancelled = false
+
+    setSnapshotUrl(null)
+    setSnapshotLoading(true)
+
+    cameraApi.snapshot(cameraId)
+      .then(blob => {
+        if (!cancelled) {
+          objectUrl = URL.createObjectURL(blob)
+          setSnapshotUrl(objectUrl)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSnapshotUrl(null)
+      })
+      .finally(() => {
+        if (!cancelled) setSnapshotLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [cameraId])
+
+  return { snapshotUrl, snapshotLoading }
 }
