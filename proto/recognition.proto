@@ -117,10 +117,25 @@ message StreamRecognitionStatusResponse {
   string error = 6;
 }
 
+// ZonePoint is a single polygon vertex in relative [0..1] coordinates
+message ZonePoint {
+  double x = 1;
+  double y = 2;
+}
+
+// ZoneConfig defines the detection zone for a camera worker
+message ZoneConfig {
+  repeated ZonePoint points = 1;    // polygon vertices in relative coords [0..1]
+  double min_plate_rel = 2;         // min plate height as fraction of frame height [0..1]
+  double max_plate_rel = 3;         // max plate height as fraction of frame height [0..1]
+  int32 max_tilt = 4;               // max allowed plate tilt in degrees
+}
+
 // Worker management messages
 message StartWorkerRequest {
   string camera_id = 1;
   string stream = 2;
+  ZoneConfig zone = 3;              // optional: if absent, full frame is processed
 }
 
 message StartWorkerResponse {

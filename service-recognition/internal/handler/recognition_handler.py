@@ -9,6 +9,7 @@ from infrastructure.grpc.stubs import recognition_pb2, recognition_pb2_grpc
 from infrastructure.storage.redis_producer import RedisProducer
 from internal.exception.exceptions import RecognitionError
 from internal.model.worker import WorkerStatus
+from internal.model.zone import WorkerZoneConfig, ZonePoint
 from internal.service.recognition_service import RecognitionService
 from internal.service.video_test_service import VideoTestService
 from internal.service.worker_manager import WorkerManager
@@ -28,6 +29,7 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
         self._recognition_service = recognition_service
         self._worker_manager = worker_manager
         self._redis_producer = redis_producer
+        self._video_service = VideoTestService(recognition_service=recognition_service)
 
     def HealthCheck(self, request, context):
         return recognition_pb2.HealthResponse(
@@ -118,12 +120,7 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
                 tmp_path = tmp.name
 
             frame_interval = request.frame_interval if request.frame_interval > 0 else 30
-
-            video_service = VideoTestService(
-                recognition_service=self._recognition_service,
-                frame_interval=frame_interval,
-            )
-            results = video_service.process_video(tmp_path)
+            results = self._video_service.process_video(tmp_path, frame_interval)
 
             detections = [
                 recognition_pb2.VideoPlateDetection(
@@ -180,7 +177,8 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
             logger.warning(f"TestRecognizeVideo: failed to publish to Redis: {e}")
 
     def StartWorker(self, request, context):
-        success, message = self._worker_manager.start_worker(request.camera_id, request.stream)
+        zone = _parse_zone_config(request.zone) if request.HasField("zone") else None
+        success, message = self._worker_manager.start_worker(request.camera_id, request.stream, zone)
         return recognition_pb2.StartWorkerResponse(
             success=success,
             message=message if success else "",
@@ -210,3 +208,14 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
             started_at=worker.started_at.isoformat() if worker.started_at else "",
             error=worker.error,
         )
+
+
+def _parse_zone_config(proto_zone) -> WorkerZoneConfig | None:
+    if not proto_zone or len(proto_zone.points) < 3:
+        return None
+    return WorkerZoneConfig(
+        points=[ZonePoint(x=p.x, y=p.y) for p in proto_zone.points],
+        min_plate_rel=proto_zone.min_plate_rel,
+        max_plate_rel=proto_zone.max_plate_rel,
+        max_tilt=proto_zone.max_tilt,
+    )

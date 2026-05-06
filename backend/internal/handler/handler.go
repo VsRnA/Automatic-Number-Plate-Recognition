@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"gorm.io/gorm"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
@@ -18,21 +19,23 @@ type Handler struct {
 	AccessPoint        IAccessPointHandler
 	RecognitionHistory IRecognitionHistoryHandler
 	ApiToken           IApiTokenHandler
+	Analytics          IAnalyticsHandler
 	cfg                config.Config
 	tokenRepo          repository.IApiTokenRepository
 }
 
-func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient) *Handler {
+func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient, db *gorm.DB) *Handler {
 	validate := validator.New()
 
 	return &Handler{
-		Plate:              NewPlateHandler(repo.Plate, repo.PlateAccessPoint, validate),
+		Plate:              NewPlateHandler(repo.Plate, repo.PlateAccessPoint, validate, db),
 		Camera:             NewCameraHandler(repo.Camera, recognitionClient, validate),
 		Recognition:        NewRecognitionHandler(recognitionClient),
 		TestRecognition:    NewTestRecognitionHandler(recognitionClient),
 		AccessPoint:        NewAccessPointHandler(repo.AccessPoint, validate),
 		RecognitionHistory: NewRecognitionHistoryHandler(repo.Recognition),
 		ApiToken:           NewApiTokenHandler(repo.ApiToken, validate),
+		Analytics:          NewAnalyticsHandler(repo.Analytics),
 		cfg:                cfg,
 		tokenRepo:          repo.ApiToken,
 	}
@@ -62,6 +65,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			cameras.POST("", h.Camera.CreateCamera)
 			cameras.GET("", h.Camera.ListCameras)
 			cameras.GET("/:id", h.Camera.GetCamera)
+			cameras.GET("/:id/snapshot", h.Camera.GetSnapshot)
 			cameras.PUT("/:id", h.Camera.UpdateCamera)
 			cameras.DELETE("/:id", h.Camera.DeleteCamera)
 		}
@@ -94,6 +98,11 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			tokens.POST("", h.ApiToken.CreateToken)
 			tokens.GET("", h.ApiToken.ListTokens)
 			tokens.DELETE("/:id", h.ApiToken.DeleteToken)
+		}
+
+		analytics := api.Group("/analytics")
+		{
+			analytics.GET("/dashboard", h.Analytics.GetDashboard)
 		}
 	}
 

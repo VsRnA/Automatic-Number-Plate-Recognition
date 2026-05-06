@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     tracker_cooldown_seconds: float = 30.0
     tracker_text_match_enabled: bool = False
 
+    plate_pattern: str = r'^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}\d{2}$'
+
     plate_min_width: int = 128
     plate_min_height: int = 32
 

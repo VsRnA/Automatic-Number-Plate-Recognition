@@ -1,28 +1,29 @@
-import { useState, useRef, useMemo } from 'react'
-import type { Plate, CreatePlateDto, UpdatePlateDto, ImportPreviewRow, ImportPreviewResponse } from '@/entities/plate'
-import { usePlates, useDeletePlate, useCreatePlate, useUpdatePlate, usePreviewImport, useImportPlates } from '@/entities/plate'
-import type { AccessPoint } from '@/entities/accessPoint'
+import { useState, useMemo } from 'react'
+import type { Plate, CreatePlateDto, UpdatePlateDto } from '@/entities/plate'
+import { usePlates, useDeletePlate, useCreatePlate, useUpdatePlate, useImportPlates, usePreviewImport } from '@/entities/plate'
 import { useAccessPoints } from '@/entities/accessPoint'
 import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { StatPill, SearchInput, TableSkeleton, ConfirmDialog, Modal, StatusBadge, Dropdown } from '@/shared/ui'
-import pageStyles from '@/shared/ui/page.module.css'
-import formStyles from '@/shared/ui/form.module.css'
-import styles from './PlatesPage.module.css'
+import { TableSkeleton, ConfirmDialog, Icon, PageHeader, PlateBadge, Toggle, CsvImportModal } from '@/shared/ui'
 
 const EMPTY_FORM: CreatePlateDto = { number: '', region: '', accessType: 'allowed', comment: '', isEnabled: true, accessPointIds: [] }
 
+const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешён', blocked: 'Заблокирован', vip: 'VIP' }
+const ACCESS_TAG: Record<string, string> = { allowed: 'tag tag-success', blocked: 'tag tag-danger', vip: 'tag tag-accent' }
+
+type FilterType = 'all' | 'allowed' | 'blocked' | 'vip'
+
 export function PlatesPage() {
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<FilterType>('all')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState<CreatePlateDto>(EMPTY_FORM)
   const [editingPlate, setEditingPlate] = useState<Plate | null>(null)
   const [editForm, setEditForm] = useState<UpdatePlateDto>({})
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
-  const [importFile, setImportFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<ImportPreviewResponse | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number } | null>(null)
   const { showToast } = useToast()
 
   const { data: plates = [], isLoading, error, refetch } = usePlates()
@@ -31,57 +32,25 @@ export function PlatesPage() {
   const deletePlate = useDeletePlate()
   const createPlate = useCreatePlate()
   const updatePlate = useUpdatePlate()
-  const previewImport = usePreviewImport()
   const importPlates = useImportPlates()
+  const previewImport = usePreviewImport()
+
+  const handlePreviewRequest = (file: File) => {
+    previewImport.mutate(file)
+  }
+
+  const handleImport = (file: File) => {
+    importPlates.mutate(file, {
+      onSuccess: (res) => setImportResult(res),
+      onError: (err) => showToast(getErrorMessage(err)),
+    })
+  }
 
   const handleImportClose = () => {
     setShowImport(false)
-    setImportFile(null)
-    setPreview(null)
-    previewImport.reset()
+    setImportResult(null)
     importPlates.reset()
-  }
-
-  const handleFileSelect = (file: File) => {
-    setImportFile(file)
-    setPreview(null)
-    previewImport.mutate(file, {
-      onSuccess: (data) => setPreview(data),
-      onError: (err) => showToast(getErrorMessage(err)),
-    })
-  }
-
-  const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) handleFileSelect(file)
-  }
-
-  const downloadCsvExample = () => {
-    const rows = [
-      'number,region,accessType,validUntil,comment,isEnabled',
-      'А123БВ77,77,allowed,,Основной въезд,true',
-      'В456ГД99,99,blocked,2026-12-31T00:00:00Z,Заблокирован,true',
-      'Е789ЖЗ50,50,vip,,VIP гость,true',
-    ]
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'plates_example.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleImportConfirm = () => {
-    if (!importFile) return
-    importPlates.mutate(importFile, {
-      onSuccess: (res) => {
-        showToast(`Импортировано: ${res.created}, пропущено: ${res.skipped}`)
-        handleImportClose()
-      },
-      onError: (err) => showToast(getErrorMessage(err)),
-    })
+    previewImport.reset()
   }
 
   const handleDelete = () => {
@@ -92,11 +61,12 @@ export function PlatesPage() {
     })
   }
 
-  const handleToggle = (plate: Plate) => {
-    updatePlate.mutate(
-      { id: plate.guid, data: { isEnabled: !plate.isEnabled } },
-      { onError: (err: unknown) => showToast(getErrorMessage(err)) }
-    )
+  const handleBulkDelete = () => {
+    if (selected.size === 0) return
+    if (!confirm(`Удалить ${selected.size} номеров? Это действие нельзя отменить.`)) return
+    const ids = [...selected]
+    ids.forEach(id => deletePlate.mutate(id, { onError: (err) => showToast(getErrorMessage(err)) }))
+    setSelected(new Set())
   }
 
   const startEdit = (plate: Plate) => {
@@ -111,8 +81,7 @@ export function PlatesPage() {
     })
   }
 
-  const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleUpdate = () => {
     if (!editingPlate) return
     updatePlate.mutate(
       { id: editingPlate.guid, data: editForm },
@@ -123,30 +92,46 @@ export function PlatesPage() {
     )
   }
 
-  const handleCreate = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!form.number.trim() || !form.accessType.trim()) {
-      showToast('Заполните обязательные поля: номер и тип доступа')
-      return
-    }
+  const handleCreate = () => {
+    if (!form.number.trim()) return
     createPlate.mutate(form, {
-      onSuccess: () => {
-        setShowAdd(false)
-        setForm(EMPTY_FORM)
-      },
+      onSuccess: () => { setShowAdd(false); setForm(EMPTY_FORM) },
       onError: (err: unknown) => showToast(getErrorMessage(err)),
     })
   }
 
-  const filtered = plates.filter(p =>
-    p.number.toLowerCase().includes(search.toLowerCase()) ||
-    p.region.toLowerCase().includes(search.toLowerCase())
-  )
+  const toggleSelect = (guid: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(guid)) next.delete(guid)
+      else next.add(guid)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set())
+    else setSelected(new Set(filtered.map(p => p.guid)))
+  }
+
+  const filtered = plates.filter(p => {
+    const matchesSearch = p.number.toLowerCase().includes(search.toLowerCase()) ||
+      p.region.toLowerCase().includes(search.toLowerCase())
+    const matchesFilter = filter === 'all' || p.accessType === filter
+    return matchesSearch && matchesFilter
+  })
 
   const deletingPlate = plates.find(p => p.guid === deletingId)
 
+  const chips: Array<{ id: FilterType; label: string; count: number }> = [
+    { id: 'all', label: 'Все', count: plates.length },
+    { id: 'allowed', label: 'Разрешены', count: plates.filter(p => p.accessType === 'allowed').length },
+    { id: 'blocked', label: 'Заблокированы', count: plates.filter(p => p.accessType === 'blocked').length },
+    { id: 'vip', label: 'VIP', count: plates.filter(p => p.accessType === 'vip').length },
+  ]
+
   return (
-    <div className={pageStyles.page}>
+    <>
       {deletingId && (
         <ConfirmDialog
           message={`Удалить номер «${deletingPlate?.number}»? Это действие нельзя отменить.`}
@@ -156,417 +141,401 @@ export function PlatesPage() {
       )}
 
       {showImport && (
-        <Modal title="Импорт номеров из CSV" onClose={handleImportClose} width={880}>
-          {!preview && (
-            <div
-              className={`${styles.dropZone} ${previewImport.isPending ? styles.dropZoneActive : ''}`}
-              onDragOver={e => e.preventDefault()}
-              onDrop={handleFileDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }}
-              />
-              <div className={styles.dropZoneText}>
-                {previewImport.isPending ? 'Загрузка...' : 'Перетащите CSV-файл сюда или нажмите для выбора'}
-              </div>
-              <div className={styles.dropZoneHint}>
-                Формат: number, region, accessType, validUntil (RFC3339), comment, isEnabled
-              </div>
-            </div>
-          )}
-
-          {preview && (
-            <div className={styles.previewWrap}>
-              <div className={styles.previewStats}>
-                <StatPill label="Будет добавлено" count={preview.totalOk} variant="green" />
-                <StatPill label="Дубликаты" count={preview.totalDuplicates} />
-                <StatPill label="Ошибки формата" count={preview.totalInvalid} variant="red" />
-              </div>
-
-              <div className={styles.previewTableWrap}>
-                <table className={styles.previewTable}>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>НОМЕР</th>
-                      <th>РЕГИОН</th>
-                      <th>ТИП ДОСТУПА</th>
-                      <th>ДЕЙСТВИТЕЛЕН ДО</th>
-                      <th>КОММЕНТАРИЙ</th>
-                      <th>СТАТУС</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.rows.map(row => (
-                      <ImportPreviewRowItem key={row.row} row={row} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className={styles.previewActions}>
-                <button className={styles.previewChange} onClick={() => { setPreview(null); setImportFile(null) }}>
-                  Выбрать другой файл
-                </button>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button className={formStyles.btnOutline} onClick={handleImportClose}>Отмена</button>
-                  <button
-                    className={formStyles.btnPrimary}
-                    disabled={preview.totalOk === 0 || importPlates.isPending}
-                    onClick={handleImportConfirm}
-                  >
-                    {importPlates.isPending ? 'Импорт...' : `Импортировать ${preview.totalOk} записей`}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </Modal>
+        <CsvImportModal
+          onClose={handleImportClose}
+          onPreviewRequest={handlePreviewRequest}
+          preview={previewImport.data}
+          isPreviewLoading={previewImport.isPending}
+          previewError={previewImport.error ? getErrorMessage(previewImport.error) : null}
+          onImport={handleImport}
+          isPending={importPlates.isPending}
+          importResult={importResult}
+        />
       )}
 
+      {/* Add modal */}
       {showAdd && (
-        <Modal title="Новый номерной знак" onClose={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>
-          <form className={formStyles.form} onSubmit={handleCreate}>
-            <div className={formStyles.fieldRow}>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Номер *</label>
-                <input className={formStyles.input} placeholder="А123БВ77" value={form.number}
-                  onChange={e => setForm(p => ({ ...p, number: e.target.value }))} />
-              </div>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Регион</label>
-                <input className={formStyles.input} placeholder="77" value={form.region ?? ''}
-                  onChange={e => setForm(p => ({ ...p, region: e.target.value }))} />
-              </div>
+        <div className="modal-backdrop" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Новый номерной знак</h2>
+              <button className="btn btn-icon btn-ghost" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}><Icon name="x" /></button>
             </div>
-            <div className={formStyles.fieldRow}>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Тип доступа *</label>
-                <Dropdown
-                  value={form.accessType}
-                  options={[
-                    { value: 'allowed', label: 'Разрешён' },
-                    { value: 'blocked', label: 'Заблокирован' },
-                    { value: 'vip', label: 'VIP' },
-                  ]}
-                  onChange={v => setForm(p => ({ ...p, accessType: String(v) }))}
-                />
-              </div>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Статус</label>
-                <div className={formStyles.toggleRow}>
-                  <button type="button"
-                    className={`${formStyles.toggleBtn} ${form.isEnabled ? formStyles.toggleActive : ''}`}
-                    onClick={() => setForm(p => ({ ...p, isEnabled: true }))}>Активен</button>
-                  <button type="button"
-                    className={`${formStyles.toggleBtn} ${!form.isEnabled ? formStyles.toggleInactive : ''}`}
-                    onClick={() => setForm(p => ({ ...p, isEnabled: false }))}>Отключён</button>
+            <div className="modal-body">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="field-row cols-2">
+                  <div className="field">
+                    <label>Номер *</label>
+                    <input
+                      className="input"
+                      placeholder="А123БВ77"
+                      value={form.number}
+                      onChange={e => setForm(p => ({ ...p, number: e.target.value }))}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Регион</label>
+                    <input
+                      className="input"
+                      placeholder="77"
+                      value={form.region ?? ''}
+                      onChange={e => setForm(p => ({ ...p, region: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="field">
+                  <label>Тип доступа</label>
+                  <select
+                    className="select"
+                    value={form.accessType}
+                    onChange={e => setForm(p => ({ ...p, accessType: e.target.value }))}
+                  >
+                    <option value="allowed">Разрешён</option>
+                    <option value="blocked">Заблокирован</option>
+                    <option value="vip">VIP</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Комментарий</label>
+                  <input
+                    className="input"
+                    placeholder="Необязательно"
+                    value={form.comment ?? ''}
+                    onChange={e => setForm(p => ({ ...p, comment: e.target.value }))}
+                  />
+                </div>
+                {accessPoints.length > 0 && (
+                  <div className="field">
+                    <label>Ограничить точками доступа</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                      {accessPoints.map(ap => (
+                        <label key={ap.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={(form.accessPointIds ?? []).includes(ap.id)}
+                            onChange={e => {
+                              const ids = form.accessPointIds ?? []
+                              setForm(p => ({
+                                ...p,
+                                accessPointIds: e.target.checked
+                                  ? [...ids, ap.id]
+                                  : ids.filter(id => id !== ap.id),
+                              }))
+                            }}
+                          />
+                          {ap.name}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="field-help">
+                      {(form.accessPointIds ?? []).length === 0
+                        ? 'Доступ разрешён на всех точках'
+                        : `Только на выбранных: ${(form.accessPointIds ?? []).length}`}
+                    </div>
+                  </div>
+                )}
+                <div className="field">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label style={{ marginBottom: 0 }}>Активен</label>
+                    <Toggle on={form.isEnabled ?? true} onChange={v => setForm(p => ({ ...p, isEnabled: v }))} />
+                  </div>
                 </div>
               </div>
             </div>
-            <div className={formStyles.field}>
-              <label className={formStyles.label}>Комментарий</label>
-              <input className={formStyles.input} placeholder="Необязательно" value={form.comment ?? ''}
-                onChange={e => setForm(p => ({ ...p, comment: e.target.value }))} />
-            </div>
-            {accessPoints.length > 0 && (
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Ограничить точками доступа</label>
-                <div className={styles.apCheckboxList}>
-                  {accessPoints.map(ap => (
-                    <label key={ap.id} className={styles.apCheckboxItem}>
-                      <input
-                        type="checkbox"
-                        checked={(form.accessPointIds ?? []).includes(ap.id)}
-                        onChange={e => {
-                          const ids = form.accessPointIds ?? []
-                          setForm(p => ({
-                            ...p,
-                            accessPointIds: e.target.checked
-                              ? [...ids, ap.id]
-                              : ids.filter(id => id !== ap.id),
-                          }))
-                        }}
-                      />
-                      {ap.name}
-                    </label>
-                  ))}
-                </div>
-                <div className={styles.apCheckboxHint}>
-                  {(form.accessPointIds ?? []).length === 0
-                    ? 'Доступ разрешён на всех точках'
-                    : `Только на выбранных: ${(form.accessPointIds ?? []).length}`}
-                </div>
-              </div>
-            )}
-            <div className={formStyles.formActions}>
-              <button type="button" className={formStyles.btnOutline}
-                onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>Отмена</button>
-              <button type="submit" className={formStyles.btnPrimary} disabled={createPlate.isPending}>
-                {createPlate.isPending ? 'Сохранение...' : 'Создать'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {editingPlate && (
-        <Modal title="Редактирование номера" onClose={() => setEditingPlate(null)}>
-          <form className={formStyles.form} onSubmit={handleUpdate}>
-            <div className={formStyles.fieldRow}>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Номер *</label>
-                <input className={formStyles.input} value={editForm.number ?? ''}
-                  onChange={e => setEditForm(p => ({ ...p, number: e.target.value }))} />
-              </div>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Регион</label>
-                <input className={formStyles.input} placeholder="77" value={editForm.region ?? ''}
-                  onChange={e => setEditForm(p => ({ ...p, region: e.target.value }))} />
+            <div className="modal-foot">
+              <span />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>Отмена</button>
+                <button className="btn btn-accent" onClick={handleCreate} disabled={createPlate.isPending || !form.number.trim()}>
+                  {createPlate.isPending ? 'Создание…' : 'Создать'}
+                </button>
               </div>
             </div>
-            <div className={formStyles.fieldRow}>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Тип доступа *</label>
-                <Dropdown
-                  value={editForm.accessType ?? 'allowed'}
-                  options={[
-                    { value: 'allowed', label: 'Разрешён' },
-                    { value: 'blocked', label: 'Заблокирован' },
-                    { value: 'vip', label: 'VIP' },
-                  ]}
-                  onChange={v => setEditForm(p => ({ ...p, accessType: String(v) }))}
-                />
-              </div>
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Статус</label>
-                <div className={formStyles.toggleRow}>
-                  <button type="button"
-                    className={`${formStyles.toggleBtn} ${editForm.isEnabled ? formStyles.toggleActive : ''}`}
-                    onClick={() => setEditForm(p => ({ ...p, isEnabled: true }))}>Активен</button>
-                  <button type="button"
-                    className={`${formStyles.toggleBtn} ${!editForm.isEnabled ? formStyles.toggleInactive : ''}`}
-                    onClick={() => setEditForm(p => ({ ...p, isEnabled: false }))}>Отключён</button>
-                </div>
-              </div>
-            </div>
-            <div className={formStyles.field}>
-              <label className={formStyles.label}>Комментарий</label>
-              <input className={formStyles.input} placeholder="Необязательно" value={editForm.comment ?? ''}
-                onChange={e => setEditForm(p => ({ ...p, comment: e.target.value }))} />
-            </div>
-            {accessPoints.length > 0 && (
-              <div className={formStyles.field}>
-                <label className={formStyles.label}>Ограничить точками доступа</label>
-                <div className={styles.apCheckboxList}>
-                  {accessPoints.map(ap => (
-                    <label key={ap.id} className={styles.apCheckboxItem}>
-                      <input
-                        type="checkbox"
-                        checked={(editForm.accessPointIds ?? []).includes(ap.id)}
-                        onChange={e => {
-                          const ids = editForm.accessPointIds ?? []
-                          setEditForm(p => ({
-                            ...p,
-                            accessPointIds: e.target.checked
-                              ? [...ids, ap.id]
-                              : ids.filter(id => id !== ap.id),
-                          }))
-                        }}
-                      />
-                      {ap.name}
-                    </label>
-                  ))}
-                </div>
-                <div className={styles.apCheckboxHint}>
-                  {(editForm.accessPointIds ?? []).length === 0
-                    ? 'Доступ разрешён на всех точках'
-                    : `Только на выбранных: ${(editForm.accessPointIds ?? []).length}`}
-                </div>
-              </div>
-            )}
-            <div className={formStyles.formActions}>
-              <button type="button" className={formStyles.btnOutline} onClick={() => setEditingPlate(null)}>Отмена</button>
-              <button type="submit" className={formStyles.btnPrimary} disabled={updatePlate.isPending}>
-                {updatePlate.isPending ? 'Сохранение...' : 'Сохранить'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      <div className={pageStyles.content}>
-        <div className={pageStyles.statsRow}>
-          <StatPill label="Всего" count={plates.length} />
-          <StatPill label="Активны" count={plates.filter(p => p.isEnabled).length} variant="green" />
-          <StatPill label="Заблокированы" count={plates.filter(p => p.accessType === 'blocked').length} variant="red" />
-        </div>
-
-        <div className={pageStyles.toolbar}>
-          <SearchInput value={search} onChange={setSearch} placeholder="Поиск по номеру или региону..." />
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className={styles.importBtn} onClick={() => setShowImport(true)}>Импорт CSV</button>
-            <button className={styles.importBtn} title="Скачать пример CSV" onClick={downloadCsvExample}>Пример</button>
           </div>
-          <span className={pageStyles.recordsCount}>{filtered.length} записей</span>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editingPlate && (
+        <div className="modal-backdrop" onClick={() => setEditingPlate(null)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Редактирование номера</h2>
+              <button className="btn btn-icon btn-ghost" onClick={() => setEditingPlate(null)}><Icon name="x" /></button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="field-row cols-2">
+                  <div className="field">
+                    <label>Номер *</label>
+                    <input
+                      className="input"
+                      value={editForm.number ?? ''}
+                      onChange={e => setEditForm(p => ({ ...p, number: e.target.value }))}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Регион</label>
+                    <input
+                      className="input"
+                      placeholder="77"
+                      value={editForm.region ?? ''}
+                      onChange={e => setEditForm(p => ({ ...p, region: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="field">
+                  <label>Тип доступа</label>
+                  <select
+                    className="select"
+                    value={editForm.accessType ?? 'allowed'}
+                    onChange={e => setEditForm(p => ({ ...p, accessType: e.target.value }))}
+                  >
+                    <option value="allowed">Разрешён</option>
+                    <option value="blocked">Заблокирован</option>
+                    <option value="vip">VIP</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Комментарий</label>
+                  <input
+                    className="input"
+                    placeholder="Необязательно"
+                    value={editForm.comment ?? ''}
+                    onChange={e => setEditForm(p => ({ ...p, comment: e.target.value }))}
+                  />
+                </div>
+                {accessPoints.length > 0 && (
+                  <div className="field">
+                    <label>Ограничить точками доступа</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                      {accessPoints.map(ap => (
+                        <label key={ap.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={(editForm.accessPointIds ?? []).includes(ap.id)}
+                            onChange={e => {
+                              const ids = editForm.accessPointIds ?? []
+                              setEditForm(p => ({
+                                ...p,
+                                accessPointIds: e.target.checked
+                                  ? [...ids, ap.id]
+                                  : ids.filter(id => id !== ap.id),
+                              }))
+                            }}
+                          />
+                          {ap.name}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="field-help">
+                      {(editForm.accessPointIds ?? []).length === 0
+                        ? 'Доступ разрешён на всех точках'
+                        : `Только на выбранных: ${(editForm.accessPointIds ?? []).length}`}
+                    </div>
+                  </div>
+                )}
+                <div className="field">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label style={{ marginBottom: 0 }}>Активен</label>
+                    <Toggle on={editForm.isEnabled ?? true} onChange={v => setEditForm(p => ({ ...p, isEnabled: v }))} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button
+                className="btn"
+                style={{ color: 'var(--danger)' }}
+                onClick={() => { setEditingPlate(null); setDeletingId(editingPlate.guid) }}
+              >
+                <Icon name="trash" /> Удалить
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => setEditingPlate(null)}>Отмена</button>
+                <button className="btn btn-accent" onClick={handleUpdate} disabled={updatePlate.isPending}>
+                  {updatePlate.isPending ? 'Сохранение…' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <PageHeader
+        title="Номерные знаки"
+        crumbs="Основное"
+        count={plates.length}
+        actions={
+          <>
+            <button className="btn" onClick={() => setShowImport(true)}>
+              <Icon name="upload" size={14} /> Импорт
+            </button>
+            <button className="btn btn-accent" onClick={() => setShowAdd(true)}>
+              <Icon name="plus" /> Добавить номер
+            </button>
+          </>
+        }
+      />
+
+      <div className="content">
+        {/* Bulk selection bar */}
+        {selected.size > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>Выбрано: {selected.size}</span>
+            <button className="btn btn-sm" style={{ color: 'var(--danger)' }} onClick={handleBulkDelete}>
+              <Icon name="trash" size={13} /> Удалить выбранные
+            </button>
+            <button className="btn btn-sm" onClick={() => setSelected(new Set())} style={{ marginLeft: 'auto' }}>
+              Отменить выбор
+            </button>
+          </div>
+        )}
+
+        <div className="toolbar">
+          <div className="chip-row">
+            {chips.map(c => (
+              <button
+                key={c.id}
+                className={`chip${filter === c.id ? ' active' : ''}`}
+                onClick={() => setFilter(c.id)}
+              >
+                {c.label}
+                <span style={{ marginLeft: 5, fontSize: 11, opacity: 0.7 }}>{c.count}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{ position: 'relative', flex: 1, maxWidth: 280 }}>
+            <Icon name="search" size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg-subtle)', pointerEvents: 'none' }} />
+            <input
+              className="input"
+              style={{ paddingLeft: 32 }}
+              placeholder="Поиск по номеру…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className={pageStyles.tableWrapper}>
-          {error && (
-            <div className={pageStyles.stateError}>
-              {getErrorMessage(error)}
-              <button className={pageStyles.retryBtn} onClick={() => refetch()}>Повторить</button>
-            </div>
-          )}
-          {!error && (
-            <table className={pageStyles.table}>
+        {error && (
+          <div className="card" style={{ padding: '24px', textAlign: 'center', color: 'var(--danger)' }}>
+            {getErrorMessage(error)}
+            <button className="btn btn-sm" style={{ marginLeft: 12 }} onClick={() => refetch()}>Повторить</button>
+          </div>
+        )}
+
+        {!error && (
+          <div className="card">
+            <table className="tbl">
               <thead>
-                <tr className={pageStyles.theadRow}>
-                  <th className={pageStyles.th}>НОМЕР</th>
-                  <th className={pageStyles.th}>РЕГИОН</th>
-                  <th className={pageStyles.th}>ТИП ДОСТУПА</th>
-                  <th className={pageStyles.th}>ТОЧКИ ДОСТУПА</th>
-                  <th className={pageStyles.th}>СТАТУС</th>
-                  <th className={pageStyles.th}>ДЕЙСТВИТЕЛЕН ДО</th>
-                  <th className={pageStyles.th}>ДОБАВЛЕН</th>
-                  <th className={pageStyles.th} />
+                <tr>
+                  <th style={{ width: 40 }}>
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selected.size === filtered.length}
+                      onChange={toggleAll}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </th>
+                  <th>Номер</th>
+                  <th>Тип доступа</th>
+                  <th>Точки доступа</th>
+                  <th>Действителен до</th>
+                  <th>Добавлен</th>
+                  <th style={{ width: 60 }} />
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <TableSkeleton rows={5} cols={8} />}
+                {isLoading && <TableSkeleton rows={5} cols={7} />}
                 {!isLoading && filtered.map(plate => (
-                  <PlateRowItem
+                  <PlateRow
                     key={plate.guid}
                     plate={plate}
                     accessPointMap={accessPointMap}
-                    onEdit={startEdit}
-                    onDeleteRequest={setDeletingId}
-                    onToggle={handleToggle}
+                    selected={selected.has(plate.guid)}
+                    onSelect={() => toggleSelect(plate.guid)}
+                    onEdit={() => startEdit(plate)}
+                    onDelete={() => setDeletingId(plate.guid)}
                   />
                 ))}
                 {!isLoading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className={pageStyles.stateMessage}>
-                      {search ? `По запросу «${search}» ничего не найдено` : 'Номера не найдены'}
+                    <td colSpan={7}>
+                      <div className="empty" style={{ padding: '32px 0' }}>
+                        <Icon name="plate" size={20} style={{ color: 'var(--fg-subtle)', marginBottom: 8 }} />
+                        <div style={{ fontWeight: 500 }}>{search ? `Ничего не найдено по «${search}»` : 'Номеров нет'}</div>
+                        {!search && (
+                          <button className="btn btn-accent btn-sm" style={{ marginTop: 12 }} onClick={() => setShowAdd(true)}>
+                            <Icon name="plus" size={13} /> Добавить первый номер
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          )}
-        </div>
-
-        <div className={pageStyles.tableFooter}>
-          <button className={pageStyles.addLink} onClick={() => setShowAdd(true)}>
-            + Добавить номер
-          </button>
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   )
 }
 
-interface PlateRowItemProps {
+interface PlateRowProps {
   plate: Plate
-  accessPointMap: Map<number, AccessPoint>
-  onEdit: (plate: Plate) => void
-  onDeleteRequest: (id: string) => void
-  onToggle: (plate: Plate) => void
+  accessPointMap: Map<number, { name: string }>
+  selected: boolean
+  onSelect: () => void
+  onEdit: () => void
+  onDelete: () => void
 }
 
-const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешён', blocked: 'Заблокирован', vip: 'VIP' }
-const ACCESS_COLORS: Record<string, string> = { allowed: '#16a34a', blocked: '#dc2626', vip: '#7c3aed' }
-
-const ERROR_LABELS: Record<string, string> = {
-  required: 'Обязательное поле',
-  too_long: 'Слишком длинный',
-  invalid_value: 'Неверное значение',
-  invalid_format: 'Неверный формат',
-  duplicate: 'Дубликат',
-}
-
-function ImportPreviewRowItem({ row }: { row: ImportPreviewRow }) {
-  const e = row.errors
+function PlateRow({ plate, accessPointMap, selected, onSelect, onEdit, onDelete }: PlateRowProps) {
   return (
-    <tr>
-      <td style={{ color: '#9ca3af', fontSize: 12 }}>{row.row}</td>
-      <td>
-        <span className={e.number ? styles.cellError : styles.cellOk}>{row.number || '—'}</span>
-        {e.number && <span className={styles.fieldError}>{ERROR_LABELS[e.number] ?? e.number}</span>}
+    <tr
+      onClick={onEdit}
+      style={{ cursor: 'pointer', background: selected ? 'var(--accent-soft)' : undefined }}
+    >
+      <td onClick={e => { e.stopPropagation(); onSelect() }} style={{ cursor: 'default' }}>
+        <input type="checkbox" checked={selected} onChange={onSelect} style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()} />
       </td>
       <td>
-        <span className={e.region ? styles.cellError : styles.cellOk}>{row.region || '—'}</span>
-        {e.region && <span className={styles.fieldError}>{ERROR_LABELS[e.region] ?? e.region}</span>}
+        <PlateBadge number={plate.number} region={plate.region} />
       </td>
       <td>
-        <span className={e.accessType ? styles.cellError : styles.cellOk}>
-          {ACCESS_LABELS[row.accessType] ?? (row.accessType || '—')}
-        </span>
-        {e.accessType && <span className={styles.fieldError}>{ERROR_LABELS[e.accessType] ?? e.accessType}</span>}
-      </td>
-      <td>
-        <span className={e.validUntil ? styles.cellError : styles.cellOk}>
-          {row.validUntil ? formatDate(row.validUntil) : '—'}
-        </span>
-        {e.validUntil && <span className={styles.fieldError}>{ERROR_LABELS[e.validUntil] ?? e.validUntil}</span>}
-      </td>
-      <td style={{ color: '#6b7280' }}>{row.comment || '—'}</td>
-      <td>
-        {row.status === 'ok' && <span className={`${styles.statusBadge} ${styles.statusOk}`}>OK</span>}
-        {row.status === 'duplicate' && <span className={`${styles.statusBadge} ${styles.statusDupe}`}>Дубликат</span>}
-        {row.status === 'invalid' && <span className={`${styles.statusBadge} ${styles.statusInvalid}`}>Ошибка</span>}
-      </td>
-    </tr>
-  )
-}
-
-function PlateRowItem({ plate, accessPointMap, onEdit, onDeleteRequest, onToggle }: PlateRowItemProps) {
-  return (
-    <tr className={pageStyles.row}>
-      <td className={pageStyles.cell}><span className={styles.plateNumber}>{plate.number}</span></td>
-      <td className={pageStyles.cell}><span className={styles.regionBadge}>{plate.region || '—'}</span></td>
-      <td className={pageStyles.cell}>
-        <span className={styles.accessBadge} style={{ color: ACCESS_COLORS[plate.accessType] ?? '#374151' }}>
+        <span className={ACCESS_TAG[plate.accessType] ?? 'tag'}>
           {ACCESS_LABELS[plate.accessType] ?? plate.accessType}
         </span>
       </td>
-      <td className={pageStyles.cell}>
-        {plate.accessPointIds && plate.accessPointIds.length > 0 ? (
-          <span className={styles.apRestriction}>
-            {plate.accessPointIds.map(id => accessPointMap.get(id)?.name ?? `#${id}`).join(', ')}
-          </span>
-        ) : (
-          <span className={styles.apAll}>Все</span>
-        )}
+      <td style={{ fontSize: 12.5, color: 'var(--fg-muted)' }}>
+        {plate.accessPointIds && plate.accessPointIds.length > 0
+          ? plate.accessPointIds.map(id => accessPointMap.get(id)?.name ?? `#${id}`).join(', ')
+          : <span style={{ color: 'var(--fg-subtle)' }}>Все</span>}
       </td>
-      <td className={pageStyles.cell}>
-        <StatusBadge
-          active={plate.isEnabled}
-          activeLabel="АКТИВЕН"
-          inactiveLabel="ОТКЛЮЧЁН"
-          onClick={() => onToggle(plate)}
-        />
+      <td style={{ fontSize: 12.5, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)' }}>
+        {plate.validUntil ? formatDate(plate.validUntil) : <span style={{ color: 'var(--fg-subtle)' }}>—</span>}
       </td>
-      <td className={pageStyles.cell}>
-        <span className={styles.date}>{plate.validUntil ? formatDate(plate.validUntil) : '—'}</span>
+      <td style={{ fontSize: 12.5, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)' }}>
+        {formatDate(plate.createdAt)}
       </td>
-      <td className={pageStyles.cell}>
-        <span className={styles.date}>{formatDate(plate.createdAt)}</span>
-      </td>
-      <td className={pageStyles.actionCell}>
-        <div className={styles.rowActions}>
-          <button className={pageStyles.deleteBtn} onClick={() => onEdit(plate)} title="Редактировать">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M9.5 1.5L12.5 4.5L5 12H2V9L9.5 1.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+      <td onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+          <button
+            className="btn btn-icon btn-ghost btn-sm"
+            onClick={e => { e.stopPropagation(); onEdit() }}
+            title="Редактировать"
+          >
+            <Icon name="edit" size={13} />
           </button>
-          <button className={pageStyles.deleteBtn} onClick={() => onDeleteRequest(plate.guid)} title="Удалить">
-            <svg width="14" height="15" viewBox="0 0 14 15" fill="none"><path d="M1 3.5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H8.5C9.05 1.5 9.5 1.95 9.5 2.5V3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M2.5 3.5L3.5 12.5C3.5 13.05 3.95 13.5 4.5 13.5H9.5C10.05 13.5 10.5 13.05 10.5 12.5L11.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <button
+            className="btn btn-icon btn-ghost btn-sm"
+            style={{ color: 'var(--danger)' }}
+            onClick={e => { e.stopPropagation(); onDelete() }}
+            title="Удалить"
+          >
+            <Icon name="trash" size={13} />
           </button>
         </div>
       </td>

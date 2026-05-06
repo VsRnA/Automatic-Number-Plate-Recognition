@@ -14,12 +14,10 @@ class VideoTestService:
     def __init__(
         self,
         recognition_service: RecognitionService,
-        frame_interval: int = 10,
     ):
         self._service = recognition_service
-        self._frame_interval = frame_interval
 
-    def process_video(self, video_path: str) -> list[VideoFrameResult]:
+    def process_video(self, video_path: str, frame_interval: int = 10) -> list[VideoFrameResult]:
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
@@ -32,10 +30,8 @@ class VideoTestService:
         duration_sec = total_frames / fps if total_frames > 0 else 0.0
 
         if duration_sec < 10:
-            frame_interval = max(1, self._frame_interval // 3)
+            frame_interval = max(1, frame_interval // 3)
             logger.debug(f"Short video ({duration_sec:.1f}s): frame_interval reduced to {frame_interval}")
-        else:
-            frame_interval = self._frame_interval
 
         tracker = Tracker(stale_frames=10, fuzzy_distance=1, min_iou=0.3, min_readings=2, text_match_enabled=False)
 

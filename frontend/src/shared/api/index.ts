@@ -31,6 +31,27 @@ export function getErrorMessage(err: unknown): string {
   return 'Произошла ошибка'
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  const authHeader = getAuthHeader()
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      ...(authHeader ? { Authorization: authHeader } : {}),
+    },
+  })
+
+  if (response.status === 401) {
+    clearCredentials()
+    window.dispatchEvent(new Event('anpr:auth-error'))
+    throw new ApiError('ERR_CLIENT_AUTH', 'Unauthorized', '')
+  }
+
+  if (!response.ok) {
+    throw new ApiError('ERR_APP', `HTTP ${response.status}`, '')
+  }
+
+  return response.blob()
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const authHeader = getAuthHeader()
   const isForm = init?.body instanceof FormData
@@ -70,6 +91,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  getBlob: (path: string) => requestBlob(path),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   postForm: <T>(path: string, form: FormData) =>

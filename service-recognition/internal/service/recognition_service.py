@@ -19,13 +19,11 @@ from internal.ml.preprocessing.crop_extractor import extract_plate_crop
 from internal.ml.preprocessing.image_enhancer import deskew_plate, enhance_plate
 from infrastructure.storage.s3_client import S3Client
 
-_PLATE_PATTERN = re.compile(r'^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}\d{2}$')
-
 logger = logging.getLogger(__name__)
 
 
-def is_valid_plate(text: str) -> bool:
-    return len(text) == 8 and bool(_PLATE_PATTERN.match(text))
+def is_valid_plate(text: str, pattern: re.Pattern) -> bool:
+    return len(text) == 8 and bool(pattern.match(text))
 
 
 class RecognitionService:
@@ -43,6 +41,7 @@ class RecognitionService:
         roi_h_percent: float = 0.6,
         plate_min_width: int = 128,
         plate_min_height: int = 32,
+        plate_pattern: str = r'^[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}\d{2}$',
     ):
         self._vehicle_detector = vehicle_detector
         self._plate_detector = plate_detector
@@ -56,6 +55,7 @@ class RecognitionService:
         self._roi_h_percent = roi_h_percent
         self._plate_min_width = plate_min_width
         self._plate_min_height = plate_min_height
+        self._plate_pattern = re.compile(plate_pattern)
 
     def process_frame(self, frame: np.ndarray) -> list[FrameDetection]:
         roi, (offset_x, offset_y) = extract_roi(
@@ -131,7 +131,7 @@ class RecognitionService:
                 continue
 
             text, ocr_confidence = ocr_result
-            if not is_valid_plate(text):
+            if not is_valid_plate(text, self._plate_pattern):
                 logger.debug(f"process_frame: OCR rejected text {text!r} (invalid plate format)")
                 self._save_rejected(frame, vehicle, plate_det, crop, text)
                 continue

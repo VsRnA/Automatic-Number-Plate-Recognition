@@ -104,6 +104,12 @@ class Tracker:
         self._last_published: dict[str, float] = {}
 
     def update(self, detections: list[FrameDetection]) -> list[ConfirmedDetection]:
+        now = time.monotonic()
+        cutoff = now - self._cooldown_seconds * 2
+        self._last_published = {k: v for k, v in self._last_published.items() if v > cutoff}
+        if len(self._last_published) > 10_000:
+            self._last_published.clear()
+
         for track in self._tracks:
             track.frames_since_seen += 1
 

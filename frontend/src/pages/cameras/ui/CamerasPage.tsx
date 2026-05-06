@@ -1,20 +1,20 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Camera } from '@/entities/camera'
-import { useCameras, useDeleteCamera } from '@/entities/camera'
+import { useCameras, useDeleteCamera, useCameraSnapshot } from '@/entities/camera'
 import { useAccessPoints } from '@/entities/accessPoint'
 import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { StatPill, SearchInput, TableSkeleton, ConfirmDialog, SortIcon } from '@/shared/ui'
-import pageStyles from '@/shared/ui/page.module.css'
-import styles from './CamerasPage.module.css'
+import { TableSkeleton, ConfirmDialog, Icon, CamTile, StatusDot, PageHeader } from '@/shared/ui'
 
-interface CamerasPageProps {
-  onCameraClick?: (id: string) => void
-  onAddCamera?: () => void
-}
+type StatusFilter = 'all' | 'active' | 'off'
+type ViewMode = 'grid' | 'table'
 
-export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
+export function CamerasPage() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [view, setView] = useState<ViewMode>('grid')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const { showToast } = useToast()
 
@@ -30,16 +30,18 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
     })
   }
 
-  const filtered = cameras.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.stream.includes(search)
-  )
-
-  const deletingCamera = cameras.find(c => c.guid === deletingId)
+  const filtered = useMemo(() => cameras.filter(c => {
+    if (statusFilter === 'active' && !c.isEnabled) return false
+    if (statusFilter === 'off' && c.isEnabled) return false
+    if (search) {
+      const q = search.toLowerCase()
+      if (!c.name.toLowerCase().includes(q) && !c.stream.includes(q)) return false
+    }
+    return true
+  }), [cameras, statusFilter, search])
 
   const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
 
-  // Group cameras by access point; access points in API order, unassigned last
   const groups = useMemo(() => {
     const byAp = new Map<number, Camera[]>()
     const unassigned: Camera[] = []
@@ -57,7 +59,6 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
       const cams = byAp.get(ap.id)
       if (cams) result.push({ apId: ap.id, name: ap.name, cameras: cams })
     })
-    // Access points not in the list (AP deleted but camera still references it)
     byAp.forEach((cams, apId) => {
       if (!accessPoints.find(ap => ap.id === apId)) {
         result.push({ apId, name: `Точка #${apId}`, cameras: cams })
@@ -67,8 +68,16 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
     return result
   }, [filtered, accessPoints])
 
+  const counts = {
+    all: cameras.length,
+    active: cameras.filter(c => c.isEnabled).length,
+    off: cameras.filter(c => !c.isEnabled).length,
+  }
+
+  const deletingCamera = cameras.find(c => c.guid === deletingId)
+
   return (
-    <div className={pageStyles.page}>
+    <>
       {deletingId && (
         <ConfirmDialog
           message={`Удалить камеру «${deletingCamera?.name}»? Это действие нельзя отменить.`}
@@ -77,141 +86,218 @@ export function CamerasPage({ onCameraClick, onAddCamera }: CamerasPageProps) {
         />
       )}
 
-      <div className={pageStyles.content}>
-        <div className={pageStyles.statsRow}>
-          <StatPill label="Всего" count={cameras.length} />
-          <StatPill label="Активны" count={cameras.filter(c => c.isEnabled).length} variant="green" />
-          <StatPill label="Отключены" count={cameras.filter(c => !c.isEnabled).length} variant="red" />
-        </div>
+      <PageHeader
+        title="Камеры"
+        crumbs="Основное"
+        count={cameras.length}
+        actions={
+          <>
+            <div className="system-strip hide-mobile">
+              <span className="dot" /> Система онлайн
+            </div>
+            <button className="btn btn-accent" onClick={() => navigate('/cameras/add')}>
+              <Icon name="plus" /> Добавить камеру
+            </button>
+          </>
+        }
+      />
 
-        <div className={pageStyles.toolbar}>
-          <SearchInput value={search} onChange={setSearch} placeholder="Поиск по названию или IP..." />
-          <span className={pageStyles.recordsCount}>{filtered.length} записей</span>
+      <div className="content">
+        <div className="toolbar">
+          <div className="search">
+            <Icon name="search" className="search-icon" />
+            <input
+              className="input"
+              placeholder="Поиск по названию или IP…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="chip-row">
+            {([
+              { id: 'all' as StatusFilter, label: 'Все', count: counts.all },
+              { id: 'active' as StatusFilter, label: 'Активные', count: counts.active },
+              { id: 'off' as StatusFilter, label: 'Отключены', count: counts.off },
+            ]).map(c => (
+              <button
+                key={c.id}
+                className={`chip ${statusFilter === c.id ? 'active' : ''}`}
+                onClick={() => setStatusFilter(c.id)}
+              >
+                {c.label} <span className="count">{c.count}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+            <button
+              className={`btn btn-sm ${view === 'grid' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setView('grid')}
+            >
+              Плитка
+            </button>
+            <button
+              className={`btn btn-sm ${view === 'table' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setView('table')}
+            >
+              Таблица
+            </button>
+          </div>
         </div>
 
         {error && (
-          <div className={pageStyles.tableWrapper}>
-            <div className={pageStyles.stateError}>
-              {getErrorMessage(error)}
-              <button className={pageStyles.retryBtn} onClick={() => refetch()}>Повторить</button>
-            </div>
+          <div className="card" style={{ padding: '24px', textAlign: 'center', color: 'var(--danger)' }}>
+            {getErrorMessage(error)}
+            <button className="btn btn-sm" style={{ marginLeft: 12 }} onClick={() => refetch()}>Повторить</button>
           </div>
         )}
 
         {isLoading && (
-          <div className={pageStyles.tableWrapper}>
-            <table className={pageStyles.table}>
-              <CameraTableHead />
-              <tbody><TableSkeleton rows={5} cols={7} /></tbody>
-            </table>
+          <div className="card">
+            <table className="tbl"><tbody><TableSkeleton rows={4} cols={5} /></tbody></table>
           </div>
         )}
 
         {!isLoading && !error && filtered.length === 0 && (
-          <div className={pageStyles.tableWrapper}>
-            <div className={pageStyles.stateMessage}>
-              {search ? `По запросу «${search}» ничего не найдено` : 'Камеры не добавлены'}
+          <div className="card">
+            <div className="empty">
+              <div style={{ display: 'inline-grid', placeItems: 'center', width: 44, height: 44, borderRadius: 12, background: 'var(--bg-sunken)', marginBottom: 12 }}>
+                <Icon name="camera" size={20} />
+              </div>
+              <h3>Камеры не найдены</h3>
+              <div style={{ fontSize: 13, marginBottom: 14 }}>
+                {search ? `По запросу «${search}» ничего не найдено` : 'Добавьте первую камеру'}
+              </div>
+              <button className="btn btn-accent" onClick={() => navigate('/cameras/add')}>
+                <Icon name="plus" /> Добавить камеру
+              </button>
             </div>
           </div>
         )}
 
-        {!isLoading && !error && groups.map(group => (
-          <div key={`group-${group.apId}`} className={styles.groupSection}>
-            <div className={styles.groupLabel}>
-              <span className={styles.groupLabelText}>{group.name}</span>
-              <span className={styles.groupCount}>{group.cameras.length}</span>
+        {!isLoading && !error && filtered.length > 0 && view === 'grid' && groups.map(group => (
+          <div key={`g-${group.apId}`} style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <Icon name="gate" size={13} style={{ color: 'var(--fg-subtle)' }} />
+              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--fg-subtle)' }}>
+                {group.name}
+              </span>
+              <span className="text-xs text-subtle">· {group.cameras.length}</span>
             </div>
-            <div className={pageStyles.tableWrapper}>
-              <table className={pageStyles.table}>
-                <CameraTableHead />
-                <tbody>
-                  {group.cameras.map(camera => (
-                    <CameraRowItem
-                      key={camera.guid}
-                      camera={camera}
-                      apName={group.apId !== null ? accessPointMap.get(group.apId)?.name : undefined}
-                      onClick={onCameraClick}
-                      onDeleteRequest={setDeletingId}
-                    />
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+              {group.cameras.map(c => (
+                <CameraCard
+                  key={c.guid}
+                  camera={c}
+                  onEdit={() => navigate(`/cameras/${c.guid}`)}
+                  onDelete={() => setDeletingId(c.guid)}
+                />
+              ))}
             </div>
           </div>
         ))}
 
-        <div className={pageStyles.tableFooter}>
-          <button className={pageStyles.addLink} onClick={onAddCamera}>
-            + Добавить камеру
+        {!isLoading && !error && filtered.length > 0 && view === 'table' && (
+          <div className="card">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Камера</th>
+                  <th>Поток SD</th>
+                  <th>Поток HD</th>
+                  <th>Статус</th>
+                  <th>Точка доступа</th>
+                  <th>Добавлена</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => (
+                  <tr key={c.guid} style={{ cursor: 'pointer' }} onClick={() => navigate(`/cameras/${c.guid}`)}>
+                    <td><strong>{c.name}</strong></td>
+                    <td>
+                      <span className="font-mono text-subtle text-xs" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                        {c.stream}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="font-mono text-subtle text-xs" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                        {c.streamHd}
+                      </span>
+                    </td>
+                    <td><StatusDot kind={c.isEnabled ? 'active' : 'off'} /></td>
+                    <td className="text-sm text-muted">
+                      {c.accessPointId !== null
+                        ? accessPointMap.get(c.accessPointId)?.name ?? `#${c.accessPointId}`
+                        : <span className="text-subtle">—</span>}
+                    </td>
+                    <td className="text-subtle text-sm">{formatDate(c.createdAt)}</td>
+                    <td>
+                      <div className="row-actions" onClick={e => e.stopPropagation()}>
+                        <button className="btn btn-icon btn-ghost" onClick={() => navigate(`/cameras/${c.guid}`)}>
+                          <Icon name="edit" />
+                        </button>
+                        <button className="btn btn-icon btn-ghost" onClick={() => setDeletingId(c.guid)}>
+                          <Icon name="trash" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+interface CameraCardProps {
+  camera: Camera
+  onEdit: () => void
+  onDelete: () => void
+}
+
+function CameraCard({ camera, onEdit, onDelete }: CameraCardProps) {
+  const { snapshotUrl } = useCameraSnapshot(camera.guid)
+  return (
+    <div className="cam-card">
+      <CamTile camera={camera} snapshotUrl={snapshotUrl} />
+      <div className="cam-card-body">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 10 }}>
+          <div style={{ minWidth: 0 }}>
+            <div className="cam-card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {camera.name}
+            </div>
+          </div>
+          <StatusDot kind={camera.isEnabled ? 'active' : 'off'} />
+        </div>
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}>
+            <span className="text-subtle">SD</span>
+            <span className="font-mono text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+              {camera.stream}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}>
+            <span className="text-subtle">HD</span>
+            <span className="font-mono text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+              {camera.streamHd}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="cam-card-foot">
+        <span>{formatDate(camera.createdAt)}</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="btn btn-sm btn-ghost" onClick={e => { e.stopPropagation(); onDelete() }}>
+            <Icon name="trash" size={12} />
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={onEdit}>
+            <Icon name="edit" size={12} />
           </button>
         </div>
       </div>
     </div>
-  )
-}
-
-function CameraTableHead() {
-  return (
-    <thead>
-      <tr className={pageStyles.theadRow}>
-        <th className={pageStyles.th}>КАМЕРА <span className={pageStyles.sortIcon}><SortIcon /></span></th>
-        <th className={pageStyles.th}>ПОТОК SD</th>
-        <th className={pageStyles.th}>ПОТОК HD</th>
-        <th className={pageStyles.th}>СТАТУС</th>
-        <th className={pageStyles.th}>ТОЧКА ДОСТУПА</th>
-        <th className={pageStyles.th}>ДОБАВЛЕНА</th>
-        <th className={pageStyles.th} />
-      </tr>
-    </thead>
-  )
-}
-
-interface CameraRowItemProps {
-  camera: Camera
-  apName?: string
-  onClick?: (id: string) => void
-  onDeleteRequest: (id: string) => void
-}
-
-function CameraRowItem({ camera, apName, onClick, onDeleteRequest }: CameraRowItemProps) {
-  return (
-    <tr
-      className={`${pageStyles.row} ${onClick ? styles.rowClickable : ''}`}
-      onClick={() => onClick?.(camera.guid)}
-    >
-      <td className={styles.nameCell}>
-        <div className={styles.cameraName}>{camera.name}</div>
-      </td>
-      <td className={pageStyles.cell}>
-        <span className={styles.streamUrl}>{camera.stream}</span>
-      </td>
-      <td className={pageStyles.cell}>
-        <span className={styles.streamUrl}>{camera.streamHd}</span>
-      </td>
-      <td className={pageStyles.cell}>
-        <span className={camera.isEnabled ? styles.statusActive : styles.statusDisabled}>
-          <span className={styles.statusDot} />
-          {camera.isEnabled ? 'Активна' : 'Отключена'}
-        </span>
-      </td>
-      <td className={pageStyles.cell}>
-        {camera.accessPointId !== null
-          ? <span className={styles.apBadge}>{apName ?? `#${camera.accessPointId}`}</span>
-          : <span className={styles.dash}>—</span>
-        }
-      </td>
-      <td className={pageStyles.cell}>
-        <span className={styles.date}>{formatDate(camera.createdAt)}</span>
-      </td>
-      <td className={pageStyles.actionCell}>
-        <button
-          className={pageStyles.deleteBtn}
-          onClick={e => { e.stopPropagation(); onDeleteRequest(camera.guid) }}
-          title="Удалить камеру"
-        >
-          <svg width="14" height="15" viewBox="0 0 14 15" fill="none"><path d="M1 3.5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H8.5C9.05 1.5 9.5 1.95 9.5 2.5V3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /><path d="M2.5 3.5L3.5 12.5C3.5 13.05 3.95 13.5 4.5 13.5H9.5C10.05 13.5 10.5 13.05 10.5 12.5L11.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </button>
-      </td>
-    </tr>
   )
 }

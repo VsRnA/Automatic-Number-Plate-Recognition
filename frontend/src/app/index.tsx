@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './styles/index.css'
 import { Sidebar } from '@/widgets/sidebar'
-import { LoginPage, CamerasPage, CameraPage, CameraAddPage, PlatesPage, AccessPointsPage, HistoryPage, TestRecognitionPage, ApiTokensPage } from '@/pages'
+import { LoginPage, CamerasPage, CameraPage, CameraAddPage, PlatesPage, AccessPointsPage, HistoryPage, AnalyticsPage } from '@/pages'
 import { ToastProvider, Toaster } from '@/shared/ui'
 import { isAuthenticated } from '@/shared/auth'
 
@@ -15,17 +16,14 @@ const queryClient = new QueryClient({
   },
 })
 
-type SidebarPage = 'cameras' | 'plates' | 'access-points' | 'history' | 'test-recognition' | 'api'
-type Route =
-  | { page: SidebarPage }
-  | { page: 'camera'; id: string }
-  | { page: 'camera-add' }
-
-const SIDEBAR_PAGES: SidebarPage[] = ['cameras', 'plates', 'access-points', 'history', 'test-recognition', 'api']
-
 function App() {
   const [authed, setAuthed] = useState(isAuthenticated)
-  const [route, setRoute] = useState<Route>({ page: 'cameras' })
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
 
   useEffect(() => {
     const handleAuthError = () => {
@@ -36,12 +34,6 @@ function App() {
     return () => window.removeEventListener('anpr:auth-error', handleAuthError)
   }, [])
 
-  const handleNavigate = (id: string) => {
-    if ((SIDEBAR_PAGES as string[]).includes(id)) {
-      setRoute({ page: id as SidebarPage })
-    }
-  }
-
   if (!authed) {
     return (
       <ToastProvider>
@@ -51,48 +43,30 @@ function App() {
     )
   }
 
-  const activeItem: string = route.page === 'camera' || route.page === 'camera-add' ? 'cameras' : route.page
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
-          <Sidebar activeItem={activeItem} onNavigate={handleNavigate} />
-
-          {route.page === 'cameras' && (
-            <CamerasPage
-              onCameraClick={id => setRoute({ page: 'camera', id })}
-              onAddCamera={() => setRoute({ page: 'camera-add' })}
-            />
-          )}
-
-          {route.page === 'camera' && (
-            <CameraPage
-              id={route.id}
-              onBack={() => setRoute({ page: 'cameras' })}
-            />
-          )}
-
-          {route.page === 'camera-add' && (
-            <CameraAddPage
-              onBack={() => setRoute({ page: 'cameras' })}
-              onCreated={() => setRoute({ page: 'cameras' })}
-            />
-          )}
-
-          {route.page === 'plates' && <PlatesPage />}
-
-          {route.page === 'access-points' && <AccessPointsPage />}
-
-          {route.page === 'history' && <HistoryPage />}
-
-          {route.page === 'test-recognition' && <TestRecognitionPage />}
-
-          {route.page === 'api' && <ApiTokensPage />}
-        </div>
-        <Toaster />
-      </ToastProvider>
-    </QueryClientProvider>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <div className="app">
+            <Sidebar darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />
+            <div className="main">
+              <Routes>
+                <Route path="/" element={<Navigate to="/cameras" replace />} />
+                <Route path="/cameras" element={<CamerasPage />} />
+                <Route path="/cameras/add" element={<CameraAddPage />} />
+                <Route path="/cameras/:id" element={<CameraPage />} />
+                <Route path="/plates" element={<PlatesPage />} />
+                <Route path="/access-points" element={<AccessPointsPage />} />
+                <Route path="/history" element={<HistoryPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="*" element={<Navigate to="/cameras" replace />} />
+              </Routes>
+            </div>
+          </div>
+          <Toaster />
+        </ToastProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   )
 }
 

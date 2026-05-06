@@ -6,7 +6,11 @@ pydantic-settings>=2.1.0,<3.0.0
 watchdog>=4.0.0,<7.0.0
 opencv-python>=4.8.0,<5.0.0
 ultralytics>=8.0.0,<9.0.0
-torch>=2.0.0,<3.0.0
+# torch + torchvision are pre-installed in Dockerfile from --index-url https://download.pytorch.org/whl/cpu
+# to avoid the default CUDA build (~2 GB) and ensure version compatibility.
+# Listed here only for local dev reference.
+torch==2.5.1
+torchvision==0.20.1
 redis>=5.0.0,<6.0.0
 numpy>=1.24.0,<2.0.0
 boto3>=1.34.0,<2.0.0

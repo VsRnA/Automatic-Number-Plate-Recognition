@@ -16,11 +16,13 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/exception"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/model"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
+	pb "github.com/VsRnA/Automatic-Number-Plate-Recognition/pkg/grpc/recognition"
 )
 
 type ICameraHandler interface {
 	CreateCamera(c *gin.Context)
 	GetCamera(c *gin.Context)
+	GetSnapshot(c *gin.Context)
 	UpdateCamera(c *gin.Context)
 	DeleteCamera(c *gin.Context)
 	ListCameras(c *gin.Context)
@@ -302,6 +304,33 @@ func (h *CameraHandler) ListCameras(c *gin.Context) {
 	c.JSON(http.StatusOK, cameras)
 }
 
+func (h *CameraHandler) GetSnapshot(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("invalid uuid format"))
+		return
+	}
+
+	camera, err := h.camera.repo.Find(id)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed find camera: "+err.Error()))
+		return
+	}
+
+	if camera == nil {
+		exception.HttpResponseException(c, exception.EntityNotFoundError(h.entity, fmt.Sprintf("id: %s", id)))
+		return
+	}
+
+	data, err := infrastructure.GrabSnapshot(camera.Stream)
+	if err != nil {
+		exception.HttpResponseException(c, exception.ServiceUnavailableError("failed to grab snapshot: "+err.Error()))
+		return
+	}
+
+	c.Data(http.StatusOK, "image/jpeg", data)
+}
+
 func (h *CameraHandler) validateRequestBody(c *gin.Context, req any) error {
 	if err := c.ShouldBindJSON(req); err != nil {
 		return err
@@ -317,7 +346,9 @@ func (h *CameraHandler) startWorker(ctx context.Context, camera *model.Camera) e
 		return fmt.Errorf("recognition client not available")
 	}
 
-	resp, err := h.camera.recognitionClient.StartWorker(ctx, camera.Guid.String(), camera.StreamHd)
+	zone := extractZoneConfig(camera.Metadata)
+
+	resp, err := h.camera.recognitionClient.StartWorker(ctx, camera.Guid.String(), camera.StreamHd, zone)
 	if err != nil {
 		return err
 	}
@@ -328,6 +359,46 @@ func (h *CameraHandler) startWorker(ctx context.Context, camera *model.Camera) e
 
 	log.Printf("Started worker for camera %s: %s", camera.Guid, resp.Message)
 	return nil
+}
+
+// extractZoneConfig parses camera metadata and returns a ZoneConfig proto if zone data is present.
+func extractZoneConfig(metadata []byte) *pb.ZoneConfig {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	var meta struct {
+		Zone *struct {
+			Points []struct {
+				X float64 `json:"x"`
+				Y float64 `json:"y"`
+			} `json:"points"`
+			MinPlateRel float64 `json:"minPlateRel"`
+			MaxPlateRel float64 `json:"maxPlateRel"`
+			Tilt        int32   `json:"tilt"`
+		} `json:"zone"`
+	}
+
+	if err := json.Unmarshal(metadata, &meta); err != nil || meta.Zone == nil {
+		return nil
+	}
+
+	z := meta.Zone
+	if len(z.Points) < 3 {
+		return nil
+	}
+
+	points := make([]*pb.ZonePoint, 0, len(z.Points))
+	for _, p := range z.Points {
+		points = append(points, &pb.ZonePoint{X: p.X, Y: p.Y})
+	}
+
+	return &pb.ZoneConfig{
+		Points:      points,
+		MinPlateRel: z.MinPlateRel,
+		MaxPlateRel: z.MaxPlateRel,
+		MaxTilt:     z.Tilt,
+	}
 }
 
 func (h *CameraHandler) stopWorker(ctx context.Context, cameraID string) error {

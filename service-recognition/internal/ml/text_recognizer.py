@@ -99,7 +99,13 @@ class TextRecognizer:
         else:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        resized = cv2.resize(image, (IMAGE_W, IMAGE_H), interpolation=cv2.INTER_AREA)
+        src_h, src_w = image.shape[:2]
+        if src_w < IMAGE_W or src_h < IMAGE_H:
+            interp = cv2.INTER_CUBIC
+        else:
+            interp = cv2.INTER_AREA
+
+        resized = cv2.resize(image, (IMAGE_W, IMAGE_H), interpolation=interp)
         normalized = (resized.astype(np.float32) / 127.5) - 1.0
         tensor = torch.from_numpy(normalized).permute(2, 0, 1).unsqueeze(0)
 

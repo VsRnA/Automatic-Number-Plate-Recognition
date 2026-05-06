@@ -11,8 +11,10 @@ from urllib.parse import urlparse
 import cv2
 import numpy as np
 
+from internal.ml.preprocessing.zone_mask import apply_zone_mask
 from internal.model.models import BoundingBox, PlateResult
 from internal.model.worker import Worker, WorkerStatus
+from internal.model.zone import WorkerZoneConfig
 from internal.tracking.tracker import ConfirmedDetection, Tracker
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,7 @@ class WorkerThread(threading.Thread):
         tracker_min_readings: int = 2,
         tracker_cooldown_seconds: float = 30.0,
         tracker_text_match_enabled: bool = False,
+        zone: WorkerZoneConfig | None = None,
     ):
         super().__init__(daemon=True)
         self.worker = worker
@@ -42,10 +45,15 @@ class WorkerThread(threading.Thread):
         self.reconnect_delay = reconnect_delay
         self.max_retries = max_retries
 
+        self._zone = zone
         self._stop_event = threading.Event()
         self._frame_count = 0
-        self._upload_executor = concurrent.futures.ThreadPoolExecutor(
+        self._detection_executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=2,
+            thread_name_prefix=f"detect-{worker.camera_id[:8]}",
+        )
+        self._upload_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=4,
             thread_name_prefix=f"s3-upload-{worker.camera_id[:8]}",
         )
 
@@ -136,7 +144,20 @@ class WorkerThread(threading.Thread):
                 cap.release()
 
     def _process_frame(self, frame: np.ndarray):
+        if self._zone is not None:
+            frame = apply_zone_mask(frame, self._zone)
+
         detections = self.recognition_service.process_frame(frame)
+
+        if self._zone is not None and (self._zone.min_plate_rel > 0 or self._zone.max_plate_rel < 1):
+            fh = frame.shape[0]
+            min_px = int(self._zone.min_plate_rel * fh)
+            max_px = int(self._zone.max_plate_rel * fh)
+            detections = [
+                d for d in detections
+                if min_px <= d.plate.bbox.height <= max_px
+            ]
+
         confirmed_list = self._tracker.update(detections)
         for confirmed in confirmed_list:
             future = self._upload_executor.submit(self._publish_confirmed, confirmed)
@@ -226,4 +247,5 @@ class WorkerThread(threading.Thread):
             future = self._upload_executor.submit(self._publish_confirmed, confirmed)
             future.add_done_callback(self._on_publish_done)
 
+        self._detection_executor.shutdown(wait=False)
         self._upload_executor.shutdown(wait=True)

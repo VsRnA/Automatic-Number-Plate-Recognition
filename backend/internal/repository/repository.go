@@ -5,12 +5,13 @@ import (
 )
 
 type Repository struct {
-	Plate             IPlateRepository
-	Camera            ICameraRepository
-	AccessPoint       IAccessPointRepository
-	Recognition       IRecognitionHistoryRepository
-	ApiToken          IApiTokenRepository
-	PlateAccessPoint  IPlateAccessPointRepository
+	Plate            IPlateRepository
+	Camera           ICameraRepository
+	AccessPoint      IAccessPointRepository
+	Recognition      IRecognitionHistoryRepository
+	ApiToken         IApiTokenRepository
+	PlateAccessPoint IPlateAccessPointRepository
+	Analytics        IAnalyticsRepository
 }
 
 func NewRepository(db *gorm.DB) *Repository {
@@ -21,5 +22,6 @@ func NewRepository(db *gorm.DB) *Repository {
 		Recognition:      NewRecognitionHistoryRepository(db),
 		ApiToken:         NewApiTokenRepository(db),
 		PlateAccessPoint: NewPlateAccessPointRepository(db),
+		Analytics:        NewAnalyticsRepository(db),
 	}
 }

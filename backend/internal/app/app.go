@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"os/signal"
@@ -16,6 +17,7 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/handler"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/worker"
+	pb "github.com/VsRnA/Automatic-Number-Plate-Recognition/pkg/grpc/recognition"
 )
 
 type App struct {
@@ -55,7 +57,7 @@ func (a *App) Run() error {
 	log.Printf("Redis client initialized at %s:%s", cfg.RedisHost, cfg.RedisPort)
 
 	repositories := repository.NewRepository(db)
-	handlers := handler.NewHandler(*cfg, repositories, recognitionClient)
+	handlers := handler.NewHandler(*cfg, repositories, recognitionClient, db)
 
 	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
 
@@ -163,12 +165,43 @@ func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo reposit
 
 	for _, cam := range cameras {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		resp, err := client.StartWorker(ctx, cam.Guid.String(), cam.StreamHd)
+		zone := extractZoneFromMetadata(cam.Metadata)
+		resp, err := client.StartWorker(ctx, cam.Guid.String(), cam.StreamHd, zone)
 		cancel()
 		if err != nil || !resp.Success {
 			log.Printf("Warning: failed to start worker for camera %s on startup: %v", cam.Guid, err)
 		} else {
 			log.Printf("Started worker for camera %s on startup", cam.Guid)
 		}
+	}
+}
+
+func extractZoneFromMetadata(metadata []byte) *pb.ZoneConfig {
+	if len(metadata) == 0 {
+		return nil
+	}
+	var meta struct {
+		Zone *struct {
+			Points []struct {
+				X float64 `json:"x"`
+				Y float64 `json:"y"`
+			} `json:"points"`
+			MinPlateRel float64 `json:"minPlateRel"`
+			MaxPlateRel float64 `json:"maxPlateRel"`
+			Tilt        int32   `json:"tilt"`
+		} `json:"zone"`
+	}
+	if err := json.Unmarshal(metadata, &meta); err != nil || meta.Zone == nil || len(meta.Zone.Points) < 3 {
+		return nil
+	}
+	points := make([]*pb.ZonePoint, 0, len(meta.Zone.Points))
+	for _, p := range meta.Zone.Points {
+		points = append(points, &pb.ZonePoint{X: p.X, Y: p.Y})
+	}
+	return &pb.ZoneConfig{
+		Points:      points,
+		MinPlateRel: meta.Zone.MinPlateRel,
+		MaxPlateRel: meta.Zone.MaxPlateRel,
+		MaxTilt:     meta.Zone.Tilt,
 	}
 }
