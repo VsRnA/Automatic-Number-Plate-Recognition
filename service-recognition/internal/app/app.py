@@ -1,6 +1,7 @@
 import logging
 
 from internal.config.config import Settings
+from internal.log_context import setup_logging
 from internal.ml.plate_detector import PlateDetector
 from internal.ml.vehicle_detector import VehicleDetector
 from internal.ml.text_recognizer import TextRecognizer
@@ -17,12 +18,9 @@ logger = logging.getLogger(__name__)
 def run() -> None:
     settings = Settings()
 
-    logging.basicConfig(
-        level=getattr(logging, settings.log_level.upper(), logging.DEBUG),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    setup_logging(settings.log_level)
 
-    logger.info(f"Starting recognition service on port {settings.grpc_port}")
+    logger.info("Starting recognition service", extra={"port": settings.grpc_port})
 
     vehicle_detector = VehicleDetector(
         model=settings.vehicle_detector_model,

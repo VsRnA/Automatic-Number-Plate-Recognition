@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	Env      string `env:"ENV"`
+	LogLevel string `env:"LOG_LEVEL"`
 	HTTPPort string `env:"HTTP_PORT"`
 
 	AdminUser     string `env:"ADMIN_USER"`
@@ -45,6 +46,7 @@ func LoadEnv() (*Config, error) {
 
 	cfg := &Config{
 		Env:      getEnv("ENV", "development"),
+		LogLevel: getEnv("LOG_LEVEL", "info"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
 
 		AdminUser:     getEnv("ADMIN_USER", "admin"),

@@ -12,6 +12,7 @@ services:
       - redis
       - service-recognition
     environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - DB_HOST=postgres
       - DB_PORT=${DB_PORT}
       - DB_USER=${DB_USER}
@@ -62,6 +63,7 @@ services:
     depends_on:
       - redis
     environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       - GRPC_PORT=50051
       - GO_BACKEND_HOST=backend
       - GO_BACKEND_PORT=8080
@@ -89,6 +91,43 @@ services:
       - "5173:5173"
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:2.9.0
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki:/etc/loki
+      - loki_data:/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    volumes:
+      - ./monitoring/promtail:/etc/promtail
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    restart: unless-stopped
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    restart: unless-stopped
+    depends_on:
+      - loki
+
 volumes:
   postgres_data:
   redis_data:
+  loki_data:
+  grafana_data:

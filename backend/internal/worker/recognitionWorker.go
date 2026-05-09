@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,7 +68,7 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 	var accessPointId *int
 	camera, err := w.cameraRepo.Find(cameraGuid)
 	if err != nil {
-		log.Printf("RecognitionWorker: camera lookup error %s: %v", cameraGuid, err)
+		slog.Error("Camera lookup error", "camera_id", cameraGuid, "error", err)
 	} else if camera != nil {
 		accessPointId = camera.AccessPointId
 	}
@@ -93,8 +93,12 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 
 		if duplicate != nil {
 			if plate.Confidence <= duplicate.Confidence {
-				log.Printf("RecognitionWorker: skip duplicate plate %q (existing conf=%.2f >= new conf=%.2f)",
-					plate.PlateNumber, duplicate.Confidence, plate.Confidence)
+				slog.Info("Plate dedup: skipped (lower confidence)",
+					"camera_id", cameraGuid,
+					"plate", plate.PlateNumber,
+					"existing_conf", duplicate.Confidence,
+					"new_conf", plate.Confidence,
+				)
 				continue
 			}
 			matchedForUpdate, _ := w.plateRepo.Get(&repository.PlateFilters{Number: &plate.PlateNumber})
@@ -103,10 +107,13 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 			duplicate.SnapshotUrl = plate.ScreenshotURL
 			duplicate.AccessGranted = resolveAccessGranted(w.papRepo, matchedForUpdate, accessPointId, occurredAt)
 			if err := w.historyRepo.Update(duplicate); err != nil {
-				log.Printf("RecognitionWorker: failed to update history for plate %q: %v", plate.PlateNumber, err)
+				slog.Error("Failed to update history for plate", "camera_id", cameraGuid, "plate", plate.PlateNumber, "error", err)
 			} else {
-				log.Printf("RecognitionWorker: updated — camera=%s plate=%q conf=%.2f",
-					cameraGuid, plate.PlateNumber, plate.Confidence)
+				slog.Info("Plate dedup: updated (higher confidence)",
+					"camera_id", cameraGuid,
+					"plate", plate.PlateNumber,
+					"new_conf", plate.Confidence,
+				)
 			}
 			continue
 		}
@@ -114,7 +121,7 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 		var plateGuid *uuid.UUID
 		matched, err := w.plateRepo.Get(&repository.PlateFilters{Number: &plate.PlateNumber})
 		if err != nil {
-			log.Printf("RecognitionWorker: plate lookup error %q: %v", plate.PlateNumber, err)
+			slog.Error("Plate lookup error", "camera_id", cameraGuid, "plate", plate.PlateNumber, "error", err)
 		} else if matched != nil {
 			g := matched.Guid
 			plateGuid = &g
@@ -134,12 +141,16 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 		}
 
 		if err := w.historyRepo.Create(record); err != nil {
-			log.Printf("RecognitionWorker: failed to save history for plate %q: %v", plate.PlateNumber, err)
+			slog.Error("Failed to save history for plate", "camera_id", cameraGuid, "plate", plate.PlateNumber, "error", err)
 			continue
 		}
 
-		log.Printf("RecognitionWorker: saved — camera=%s plate=%q known=%v",
-			cameraGuid, plate.PlateNumber, plateGuid != nil)
+		slog.Info("Plate saved",
+			"camera_id", cameraGuid,
+			"plate", plate.PlateNumber,
+			"known", plateGuid != nil,
+			"access_granted", accessGranted != nil && *accessGranted,
+		)
 	}
 
 	return nil
@@ -160,7 +171,6 @@ func resolveAccessGranted(papRepo repository.IPlateAccessPointRepository, plate 
 func hasAccessToPoint(papRepo repository.IPlateAccessPointRepository, plateGuid uuid.UUID, accessPointId *int) bool {
 	items, err := papRepo.List(&repository.PlateAccessPointFilters{PlateGuid: &plateGuid})
 	if err != nil || len(items) == 0 {
-		// нет привязок — доступ разрешён везде
 		return true
 	}
 	if accessPointId == nil {

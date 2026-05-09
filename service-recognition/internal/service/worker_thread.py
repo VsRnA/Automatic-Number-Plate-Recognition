@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 import cv2
 import numpy as np
 
+from internal.log_context import clear_camera_id, set_camera_id
 from internal.ml.preprocessing.zone_mask import apply_zone_mask
 from internal.model.models import BoundingBox, PlateResult
 from internal.model.worker import Worker, WorkerStatus
@@ -67,18 +68,36 @@ class WorkerThread(threading.Thread):
         )
 
     def run(self):
+        set_camera_id(self.worker.camera_id)
+        try:
+            self._run_loop()
+        finally:
+            clear_camera_id()
+
+    def _run_loop(self):
         retry_count = 0
 
         while not self._stop_event.is_set() and retry_count < self.max_retries:
             try:
                 logger.info(
-                    f"Starting stream for camera {self.worker.camera_id} "
-                    f"(attempt {retry_count + 1}/{self.max_retries})"
+                    "Starting stream",
+                    extra={
+                        "camera_id": self.worker.camera_id,
+                        "attempt": retry_count + 1,
+                        "max_retries": self.max_retries,
+                    },
                 )
                 self._process_stream()
 
                 if not self._stop_event.is_set():
-                    logger.warning(f"Stream ended unexpectedly for camera {self.worker.camera_id}")
+                    logger.warning(
+                        "Stream ended unexpectedly",
+                        extra={
+                            "event": "stream_ended_unexpectedly",
+                            "camera_id": self.worker.camera_id,
+                            "attempt": retry_count + 1,
+                        },
+                    )
                     retry_count += 1
                     if retry_count < self.max_retries:
                         time.sleep(self.reconnect_delay)
@@ -86,17 +105,46 @@ class WorkerThread(threading.Thread):
                     break
 
             except Exception as e:
-                logger.error(f"Stream error for camera {self.worker.camera_id}: {e}", exc_info=True)
+                logger.error(
+                    "Stream error",
+                    extra={
+                        "event": "stream_error",
+                        "camera_id": self.worker.camera_id,
+                        "error": str(e),
+                        "attempt": retry_count + 1,
+                    },
+                    exc_info=True,
+                )
                 retry_count += 1
                 if retry_count < self.max_retries and not self._stop_event.is_set():
+                    logger.warning(
+                        "Reconnecting stream",
+                        extra={
+                            "event": "stream_reconnect",
+                            "camera_id": self.worker.camera_id,
+                            "attempt": retry_count,
+                            "max_retries": self.max_retries,
+                            "delay_s": self.reconnect_delay,
+                        },
+                    )
                     time.sleep(self.reconnect_delay)
 
         if retry_count >= self.max_retries:
-            logger.error(f"Max retries reached for camera {self.worker.camera_id}")
+            logger.error(
+                "Max retries reached, worker stopping",
+                extra={
+                    "event": "worker_max_retries",
+                    "camera_id": self.worker.camera_id,
+                    "max_retries": self.max_retries,
+                },
+            )
             self.worker.status = WorkerStatus.ERROR
             self.worker.error = "Max retries reached"
 
-        logger.info(f"WorkerThread stopped for camera {self.worker.camera_id}")
+        logger.info(
+            "WorkerThread stopped",
+            extra={"camera_id": self.worker.camera_id},
+        )
 
     def _check_rtsp_connectivity(self, url: str, timeout: int = 5) -> bool:
         parsed = urlparse(url)
@@ -109,7 +157,16 @@ class WorkerThread(threading.Thread):
         sock.close()
 
         if result != 0:
-            logger.error(f"RTSP not reachable: {host}:{port} (code {result})")
+            logger.error(
+                "RTSP not reachable",
+                extra={
+                    "event": "rtsp_unreachable",
+                    "camera_id": self.worker.camera_id,
+                    "host": host,
+                    "port": port,
+                    "error_code": result,
+                },
+            )
             return False
 
         return True
@@ -126,13 +183,22 @@ class WorkerThread(threading.Thread):
             if not cap.isOpened():
                 raise RuntimeError(f"Failed to open RTSP stream: {self.worker.stream}")
 
-            logger.info(f"Stream opened for camera {self.worker.camera_id}")
+            logger.info(
+                "Stream opened",
+                extra={"camera_id": self.worker.camera_id},
+            )
             self._frame_count = 0
 
             while not self._stop_event.is_set():
                 ret, frame = cap.read()
                 if not ret:
-                    logger.warning(f"Failed to read frame from camera {self.worker.camera_id}")
+                    logger.warning(
+                        "Failed to read frame",
+                        extra={
+                            "event": "stream_frame_read_failed",
+                            "camera_id": self.worker.camera_id,
+                        },
+                    )
                     break
 
                 self._frame_count += 1
@@ -170,8 +236,12 @@ class WorkerThread(threading.Thread):
 
         if frame is None:
             logger.warning(
-                f"Camera {self.worker.camera_id}: confirmed '{confirmed.plate_text}' "
-                f"but no best frame — skipping save"
+                "Confirmed plate has no best frame, skipping save",
+                extra={
+                    "event": "confirmed_no_frame",
+                    "camera_id": self.worker.camera_id,
+                    "plate_text": confirmed.plate_text,
+                },
             )
             return
 
@@ -191,22 +261,48 @@ class WorkerThread(threading.Thread):
         try:
             screenshot_url = self.recognition_service.save_screenshot(frame, plate_result, plate_bbox, camera_id, event_id)
         except Exception:
-            logger.warning(f"Screenshot save failed for camera {camera_id}")
+            logger.warning(
+                "Screenshot save failed",
+                extra={
+                    "event": "s3_upload_failed",
+                    "camera_id": camera_id,
+                    "upload_type": "screenshot",
+                },
+            )
 
         if vehicle_bbox is not None:
             try:
                 car_crop_url = self.recognition_service.save_car_crop(frame, vehicle_bbox, confirmed.plate_text, camera_id, event_id)
             except Exception:
-                logger.warning(f"Car crop save failed for camera {camera_id}")
+                logger.warning(
+                    "Car crop save failed",
+                    extra={
+                        "event": "s3_upload_failed",
+                        "camera_id": camera_id,
+                        "upload_type": "car_crop",
+                    },
+                )
 
         try:
             plate_crop_url = self.recognition_service.save_plate_crop(frame, plate_bbox, confirmed.plate_text, camera_id, event_id)
         except Exception:
-            logger.warning(f"Plate crop save failed for camera {camera_id}")
+            logger.warning(
+                "Plate crop save failed",
+                extra={
+                    "event": "s3_upload_failed",
+                    "camera_id": camera_id,
+                    "upload_type": "plate_crop",
+                },
+            )
 
         logger.info(
-            f"Camera {camera_id}: confirmed plate '{confirmed.plate_text}' "
-            f"(conf={confirmed.confidence:.2f}), screenshot={screenshot_url}"
+            "Plate confirmed and published",
+            extra={
+                "camera_id": camera_id,
+                "plate_text": confirmed.plate_text,
+                "confidence": round(confirmed.confidence, 4),
+                "screenshot_url": screenshot_url,
+            },
         )
 
         self.redis_producer.send_recognition_result(
@@ -232,7 +328,13 @@ class WorkerThread(threading.Thread):
             future.result()
         except Exception as e:
             logger.error(
-                f"Camera {self.worker.camera_id}: publish task failed: {e}", exc_info=True
+                "Publish task failed",
+                extra={
+                    "event": "publish_task_failed",
+                    "camera_id": self.worker.camera_id,
+                    "error": str(e),
+                },
+                exc_info=True,
             )
 
     def stop(self, timeout: float = 5.0):
@@ -240,7 +342,11 @@ class WorkerThread(threading.Thread):
         self.join(timeout)
         if self.is_alive():
             logger.warning(
-                f"Worker thread did not stop within {timeout}s for camera {self.worker.camera_id}"
+                "Worker thread did not stop within timeout",
+                extra={
+                    "camera_id": self.worker.camera_id,
+                    "timeout_s": timeout,
+                },
             )
 
         for confirmed in self._tracker.flush():
