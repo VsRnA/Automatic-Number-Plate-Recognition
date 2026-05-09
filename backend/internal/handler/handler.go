@@ -43,7 +43,7 @@ func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClien
 
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
-	router.Use(gin.Logger())
+	router.Use(middleware.StructuredLogger())
 	router.Use(gin.Recovery())
 
 	api := router.Group("/api/v1")

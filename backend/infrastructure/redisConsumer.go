@@ -2,7 +2,7 @@ package infrastructure
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -37,15 +37,15 @@ func NewRedisConsumer(
 
 func (c *RedisConsumer) Start(ctx context.Context) {
 	if err := c.ensureGroup(ctx); err != nil {
-		log.Printf("RedisConsumer: failed to create group %q: %v", c.groupName, err)
+		slog.Error("RedisConsumer: failed to create group", "group", c.groupName, "error", err)
 		return
 	}
-	log.Printf("RedisConsumer: listening on stream=%s group=%s", c.streamKey, c.groupName)
+	slog.Info("RedisConsumer: listening", "stream", c.streamKey, "group", c.groupName)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("RedisConsumer: stopped (stream=%s)", c.streamKey)
+			slog.Info("RedisConsumer: stopped", "stream", c.streamKey)
 			return
 		default:
 			c.poll(ctx)
@@ -72,7 +72,7 @@ func (c *RedisConsumer) poll(ctx context.Context) {
 
 	if err != nil {
 		if err != redis.Nil {
-			log.Printf("RedisConsumer: XReadGroup error: %v", err)
+			slog.Error("RedisConsumer: XReadGroup error", "stream", c.streamKey, "error", err)
 		}
 		return
 	}
@@ -86,7 +86,7 @@ func (c *RedisConsumer) poll(ctx context.Context) {
 			}
 
 			if err := c.handler.Handle(ctx, data); err != nil {
-				log.Printf("RedisConsumer: handler error for message %s: %v", msg.ID, err)
+				slog.Error("RedisConsumer: handler error", "stream", c.streamKey, "msg_id", msg.ID, "error", err)
 				continue
 			}
 			c.ack(ctx, msg.ID)
@@ -111,6 +111,6 @@ func (c *RedisConsumer) extractData(msg redis.XMessage) ([]byte, bool) {
 
 func (c *RedisConsumer) ack(ctx context.Context, msgID string) {
 	if err := c.client.XAck(ctx, c.streamKey, c.groupName, msgID).Err(); err != nil {
-		log.Printf("RedisConsumer: failed to ACK message %s: %v", msgID, err)
+		slog.Error("RedisConsumer: failed to ACK message", "stream", c.streamKey, "msg_id", msgID, "error", err)
 	}
 }

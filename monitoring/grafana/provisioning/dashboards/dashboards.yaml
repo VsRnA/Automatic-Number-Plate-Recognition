@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: ANPR
+    orgId: 1
+    folder: ANPR
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 60
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

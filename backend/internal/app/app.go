@@ -3,9 +3,10 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,8 +32,14 @@ func New() *App {
 func (a *App) Run() error {
 	cfg, err := config.LoadEnv()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		// slog not yet configured — write to stderr and exit
+		slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("Failed to load configuration", "error", err)
+		os.Exit(1)
 	}
+
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: parseLogLevel(cfg.LogLevel),
+	})).With("service", "backend"))
 
 	db, err := database.InitDB(database.DBConfig{
 		Host:     cfg.DBHost,
@@ -43,18 +50,19 @@ func (a *App) Run() error {
 		SSLMode:  cfg.DBSsl,
 	})
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 
 	recognitionClient, err := infrastructure.NewRecognitionClient(cfg.GRPCHost, cfg.GRPCPort)
 	if err != nil {
-		log.Printf("Warning: Failed to connect to recognition service: %v", err)
+		slog.Warn("Failed to connect to recognition service", "host", cfg.GRPCHost, "port", cfg.GRPCPort, "error", err)
 	} else {
-		log.Printf("Connected to recognition service at %s:%s", cfg.GRPCHost, cfg.GRPCPort)
+		slog.Info("Connected to recognition service", "host", cfg.GRPCHost, "port", cfg.GRPCPort)
 	}
 
 	redisClient := infrastructure.NewRedisClient(cfg.RedisHost, cfg.RedisPort)
-	log.Printf("Redis client initialized at %s:%s", cfg.RedisHost, cfg.RedisPort)
+	slog.Info("Redis client initialized", "host", cfg.RedisHost, "port", cfg.RedisPort)
 
 	repositories := repository.NewRepository(db)
 	handlers := handler.NewHandler(*cfg, repositories, recognitionClient, db)
@@ -62,9 +70,10 @@ func (a *App) Run() error {
 	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
 
 	go func() {
-		log.Printf("HTTP Server listening on port %s", cfg.HTTPPort)
+		slog.Info("HTTP server listening", "port", cfg.HTTPPort)
 		if err := srv.Run(); err != nil {
-			log.Fatalf("Error running HTTP server: %s", err.Error())
+			slog.Error("Error running HTTP server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -94,10 +103,11 @@ func (a *App) Run() error {
 	<-quit
 
 	workerCancel()
-	log.Println("Shutting down server...")
+	slog.Info("Shutting down server")
 
 	if err := srv.Shutdown(context.Background()); err != nil {
-		log.Fatalf("Error shutting down server: %s", err.Error())
+		slog.Error("Error shutting down server", "error", err)
+		os.Exit(1)
 	}
 
 	sqlDB, err := db.DB()
@@ -110,10 +120,10 @@ func (a *App) Run() error {
 	}
 
 	if err := redisClient.Close(); err != nil {
-		log.Printf("Error closing Redis client: %v", err)
+		slog.Error("Error closing Redis client", "error", err)
 	}
 
-	log.Println("Server stopped")
+	slog.Info("Server stopped")
 	return nil
 }
 
@@ -129,9 +139,9 @@ func runExpirationTicker(ctx context.Context, db *gorm.DB, interval time.Duratio
 				`UPDATE plates SET "isEnabled" = false WHERE "isEnabled" = true AND "validUntil" IS NOT NULL AND "validUntil" < NOW()`,
 			)
 			if result.Error != nil {
-				log.Printf("ExpirationTicker: failed to deactivate expired plates: %v", result.Error)
+				slog.Error("ExpirationTicker: failed to deactivate expired plates", "error", result.Error)
 			} else if result.RowsAffected > 0 {
-				log.Printf("ExpirationTicker: deactivated %d expired plates", result.RowsAffected)
+				slog.Info("ExpirationTicker: deactivated expired plates", "count", result.RowsAffected)
 			}
 		}
 	}
@@ -149,17 +159,17 @@ func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo reposit
 			break
 		}
 		if i == maxAttempts-1 {
-			log.Printf("Recognition service not available after %d attempts, skipping worker restore", maxAttempts)
+			slog.Error("Recognition service not available, skipping worker restore", "attempts", maxAttempts)
 			return
 		}
-		log.Printf("Waiting for recognition service to be ready (%d/%d)...", i+1, maxAttempts)
+		slog.Info("Waiting for recognition service", "attempt", i+1, "max", maxAttempts)
 		time.Sleep(retryInterval)
 	}
 
 	isEnabled := true
 	cameras, err := cameraRepo.List(&repository.CameraFilters{IsEnabled: &isEnabled, Limit: 1000})
 	if err != nil {
-		log.Printf("Warning: failed to list enabled cameras for worker restore: %v", err)
+		slog.Error("Failed to list enabled cameras for worker restore", "error", err)
 		return
 	}
 
@@ -169,10 +179,23 @@ func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo reposit
 		resp, err := client.StartWorker(ctx, cam.Guid.String(), cam.StreamHd, zone)
 		cancel()
 		if err != nil || !resp.Success {
-			log.Printf("Warning: failed to start worker for camera %s on startup: %v", cam.Guid, err)
+			slog.Warn("Failed to start worker for camera on startup", "camera_id", cam.Guid, "error", err)
 		} else {
-			log.Printf("Started worker for camera %s on startup", cam.Guid)
+			slog.Info("Started worker for camera on startup", "camera_id", cam.Guid)
 		}
+	}
+}
+
+func parseLogLevel(s string) slog.Level {
+	switch strings.ToLower(s) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
 	}
 }
 

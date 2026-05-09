@@ -155,6 +155,16 @@ class Tracker:
                         f"Tracker: confirmed stale track '{result.plate_text}' "
                         f"({len(track.readings)} readings)"
                     )
+                elif len(track.readings) < self._min_readings:
+                    logger.debug(
+                        "Stale track discarded: not enough readings",
+                        extra={
+                            "event": "tracker_track_discarded",
+                            "readings_count": len(track.readings),
+                            "min_readings": self._min_readings,
+                            "frames_since_seen": track.frames_since_seen,
+                        },
+                    )
             else:
                 still_alive.append(track)
         self._tracks = still_alive
@@ -261,9 +271,14 @@ class Tracker:
 
         last = self._last_published.get(text)
         if last is not None and now - last < self._cooldown_seconds:
-            logger.debug(
-                f"Tracker: skipping '{text}' — cooldown active "
-                f"({now - last:.1f}s / {self._cooldown_seconds}s)"
+            logger.info(
+                "Tracker: plate suppressed by cooldown",
+                extra={
+                    "event": "tracker_cooldown_skip",
+                    "plate_text": text,
+                    "elapsed_s": round(now - last, 1),
+                    "cooldown_s": self._cooldown_seconds,
+                },
             )
             return None
         self._last_published[text] = now

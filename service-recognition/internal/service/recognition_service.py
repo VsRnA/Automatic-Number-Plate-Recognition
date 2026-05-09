@@ -74,10 +74,18 @@ class RecognitionService:
             raw_plates = future_plates.result()
 
         filtered_plates = [p for p in raw_plates if p.confidence >= self._confidence_threshold]
-        logger.debug(
-            f"process_frame: {len(raw_vehicles)} vehicles, "
-            f"{len(raw_plates)} plate detections ({len(filtered_plates)} above threshold)"
-        )
+
+        rejected_by_conf = len(raw_plates) - len(filtered_plates)
+        if rejected_by_conf > 0:
+            logger.warning(
+                "Plates rejected by confidence threshold",
+                extra={
+                    "event": "plate_filtered_low_confidence",
+                    "rejected_count": rejected_by_conf,
+                    "total_detected": len(raw_plates),
+                    "threshold": self._confidence_threshold,
+                },
+            )
 
         if not filtered_plates:
             return []
@@ -96,19 +104,32 @@ class RecognitionService:
             for v in raw_vehicles
         ]
 
-        plate_detections = [
-            PlateDetection(
-                bbox=BoundingBox(
-                    x=p.x1 + offset_x,
-                    y=p.y1 + offset_y,
-                    width=p.x2 - p.x1,
-                    height=p.y2 - p.y1,
-                ),
-                confidence=p.confidence,
+        plate_detections = []
+        for p in filtered_plates:
+            w, h = p.x2 - p.x1, p.y2 - p.y1
+            if w < 10 or h < 5:
+                logger.warning(
+                    "Plate detection too small to process",
+                    extra={
+                        "event": "plate_filtered_raw_size",
+                        "width": w,
+                        "height": h,
+                        "min_w": 10,
+                        "min_h": 5,
+                    },
+                )
+                continue
+            plate_detections.append(
+                PlateDetection(
+                    bbox=BoundingBox(
+                        x=p.x1 + offset_x,
+                        y=p.y1 + offset_y,
+                        width=w,
+                        height=h,
+                    ),
+                    confidence=p.confidence,
+                )
             )
-            for p in filtered_plates
-            if (p.x2 - p.x1) >= 10 and (p.y2 - p.y1) >= 5
-        ]
 
         associations = associate_plates_to_vehicles(vehicle_detections, plate_detections)
 
@@ -121,7 +142,32 @@ class RecognitionService:
                 min_h=self._plate_min_height,
             )
             if crop.size == 0:
+                logger.warning(
+                    "Plate crop is empty after extraction",
+                    extra={
+                        "event": "plate_crop_empty",
+                        "plate_w": plate_det.bbox.width,
+                        "plate_h": plate_det.bbox.height,
+                        "min_w": self._plate_min_width,
+                        "min_h": self._plate_min_height,
+                    },
+                )
                 continue
+
+            crop_h, crop_w = crop.shape[:2]
+            if crop_h < self._plate_min_height or crop_w < self._plate_min_width:
+                logger.warning(
+                    "Plate crop below configured minimum size",
+                    extra={
+                        "event": "plate_filtered_min_size",
+                        "crop_w": crop_w,
+                        "crop_h": crop_h,
+                        "min_w": self._plate_min_width,
+                        "min_h": self._plate_min_height,
+                        "raw_plate_w": plate_det.bbox.width,
+                        "raw_plate_h": plate_det.bbox.height,
+                    },
+                )
 
             crop = deskew_plate(crop)
             crop = enhance_plate(crop)
@@ -132,7 +178,14 @@ class RecognitionService:
 
             text, ocr_confidence = ocr_result
             if not is_valid_plate(text, self._plate_pattern):
-                logger.debug(f"process_frame: OCR rejected text {text!r} (invalid plate format)")
+                logger.warning(
+                    "Plate rejected: invalid OCR format",
+                    extra={
+                        "event": "plate_rejected_format",
+                        "ocr_text": text,
+                        "ocr_confidence": round(ocr_confidence, 4),
+                    },
+                )
                 self._save_rejected(frame, vehicle, plate_det, crop, text)
                 continue
 
