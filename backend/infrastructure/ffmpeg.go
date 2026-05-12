@@ -3,7 +3,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,7 +98,7 @@ func (m *FFmpegManager) Start(cameraID, stream string) error {
 			if err != nil {
 				s.status = "error"
 				s.errMsg = err.Error()
-				log.Printf("ffmpeg for camera %s exited with error: %v", cameraID, err)
+				slog.Error("ffmpeg exited with error", "camera_id", cameraID, "error", err)
 			} else {
 				s.status = "stopped"
 			}
@@ -155,7 +155,7 @@ func (m *FFmpegManager) StopAll() {
 	for id, info := range m.streams {
 		if info.status == "running" {
 			if err := info.cmd.Process.Kill(); err != nil {
-				log.Printf("failed to kill ffmpeg for camera %s: %v", id, err)
+				slog.Error("failed to kill ffmpeg", "camera_id", id, "error", err)
 			}
 			info.status = "stopped"
 		}

@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/csv"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/exception"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
@@ -16,6 +18,7 @@ import (
 type IRecognitionHistoryHandler interface {
 	ListHistory(c *gin.Context)
 	ExportHistoryCSV(c *gin.Context)
+	ExportHistoryExcel(c *gin.Context)
 }
 
 type RecognitionHistoryHandler struct {
@@ -93,6 +96,68 @@ func (h *RecognitionHistoryHandler) ExportHistoryCSV(c *gin.Context) {
 	}
 
 	w.Flush()
+}
+
+func (h *RecognitionHistoryHandler) ExportHistoryExcel(c *gin.Context) {
+	filters := h.parseFilters(c)
+	if filters.Limit == 0 {
+		filters.Limit = 50_000
+	}
+
+	records, err := h.repo.List(filters)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed to export recognition history: "+err.Error()))
+		return
+	}
+
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheet := "История"
+	f.SetSheetName("Sheet1", sheet)
+
+	headers := []string{"ID", "Номер", "Доступ разрешён", "Уверенность", "Камера (GUID)", "Точка доступа", "Скриншот", "Дата и время"}
+	for col, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(col+1, 1)
+		f.SetCellValue(sheet, cell, header)
+	}
+
+	for row, r := range records {
+		rowNum := row + 2
+		accessGranted := ""
+		if r.AccessGranted != nil {
+			if *r.AccessGranted {
+				accessGranted = "Да"
+			} else {
+				accessGranted = "Нет"
+			}
+		}
+		accessPointId := ""
+		if r.AccessPointId != nil {
+			accessPointId = strconv.Itoa(*r.AccessPointId)
+		}
+		values := []any{
+			r.ID.String(),
+			r.PlateNumber,
+			accessGranted,
+			r.Confidence,
+			r.CameraGuid.String(),
+			accessPointId,
+			r.SnapshotUrl,
+			r.OccurredAt.Format("02.01.2006 15:04:05"),
+		}
+		for col, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(col+1, rowNum)
+			f.SetCellValue(sheet, cell, val)
+		}
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=recognition_history.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		slog.Error("Failed to write Excel response", "error", err)
+	}
 }
 
 func (h *RecognitionHistoryHandler) parseFilters(c *gin.Context) *repository.RecognitionHistoryFilters {

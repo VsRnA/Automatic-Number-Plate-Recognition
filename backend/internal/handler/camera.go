@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -23,6 +25,9 @@ type ICameraHandler interface {
 	CreateCamera(c *gin.Context)
 	GetCamera(c *gin.Context)
 	GetSnapshot(c *gin.Context)
+	GetWorkerStatus(c *gin.Context)
+	GetHLSPlaylist(c *gin.Context)
+	GetHLSSegment(c *gin.Context)
 	UpdateCamera(c *gin.Context)
 	DeleteCamera(c *gin.Context)
 	ListCameras(c *gin.Context)
@@ -37,13 +42,15 @@ type CameraHandler struct {
 type cameraDeps struct {
 	repo              repository.ICameraRepository
 	recognitionClient *infrastructure.RecognitionClient
+	hlsManager        *infrastructure.FFmpegManager
 }
 
-func NewCameraHandler(repo repository.ICameraRepository, recognitionClient *infrastructure.RecognitionClient, validate *validator.Validate) ICameraHandler {
+func NewCameraHandler(repo repository.ICameraRepository, recognitionClient *infrastructure.RecognitionClient, hlsManager *infrastructure.FFmpegManager, validate *validator.Validate) ICameraHandler {
 	return &CameraHandler{
 		camera: &cameraDeps{
 			repo:              repo,
 			recognitionClient: recognitionClient,
+			hlsManager:        hlsManager,
 		},
 		validate: validate,
 		entity:   "camera",
@@ -90,24 +97,14 @@ func (h *CameraHandler) CreateCamera(c *gin.Context) {
 		camera.IsEnabled = *req.IsEnabled
 	}
 
-	if camera.IsEnabled && h.camera.recognitionClient == nil {
-		exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable"))
-		return
-	}
-
 	if err := h.camera.repo.Create(camera); err != nil {
 		exception.HttpResponseException(c, exception.InternalError("failed camera creating: "+err.Error()))
 		return
 	}
 
-	if camera.IsEnabled {
+	if camera.IsEnabled && h.camera.recognitionClient != nil {
 		if err := h.startWorker(c.Request.Context(), camera); err != nil {
-			camera.IsEnabled = false
-			if rollbackErr := h.camera.repo.Update(camera); rollbackErr != nil {
-				log.Printf("Warning: failed to rollback camera %s enabled state: %v", camera.Guid, rollbackErr)
-			}
-			exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable: "+err.Error()))
-			return
+			slog.Warn("Failed to start worker, health checker will retry", "camera_id", camera.Guid, "error", err)
 		}
 	}
 
@@ -198,25 +195,14 @@ func (h *CameraHandler) UpdateCamera(c *gin.Context) {
 
 	if req.IsEnabled != nil && wasEnabled != camera.IsEnabled {
 		if camera.IsEnabled {
-			if h.camera.recognitionClient == nil {
-				camera.IsEnabled = false
-				if rollbackErr := h.camera.repo.Update(camera); rollbackErr != nil {
-					log.Printf("Warning: failed to rollback camera %s enabled state: %v", camera.Guid, rollbackErr)
+			if h.camera.recognitionClient != nil {
+				if err := h.startWorker(c.Request.Context(), camera); err != nil {
+					slog.Warn("Failed to start worker, health checker will retry", "camera_id", camera.Guid, "error", err)
 				}
-				exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable"))
-				return
-			}
-			if err := h.startWorker(c.Request.Context(), camera); err != nil {
-				camera.IsEnabled = false
-				if rollbackErr := h.camera.repo.Update(camera); rollbackErr != nil {
-					log.Printf("Warning: failed to rollback camera %s enabled state: %v", camera.Guid, rollbackErr)
-				}
-				exception.HttpResponseException(c, exception.ServiceUnavailableError("recognition service unavailable: "+err.Error()))
-				return
 			}
 		} else {
 			if err := h.stopWorker(c.Request.Context(), camera.Guid.String()); err != nil {
-				log.Printf("Warning: failed to stop worker for camera %s: %v", camera.Guid, err)
+				slog.Warn("Failed to stop worker for camera", "camera_id", camera.Guid, "error", err)
 			}
 		}
 	}
@@ -244,7 +230,7 @@ func (h *CameraHandler) DeleteCamera(c *gin.Context) {
 
 	if camera.IsEnabled {
 		if err := h.stopWorker(c.Request.Context(), camera.Guid.String()); err != nil {
-			log.Printf("Warning: failed to stop worker for camera %s: %v", camera.Guid, err)
+			slog.Warn("Failed to stop worker for camera", "camera_id", camera.Guid, "error", err)
 		}
 	}
 
@@ -331,6 +317,32 @@ func (h *CameraHandler) GetSnapshot(c *gin.Context) {
 	c.Data(http.StatusOK, "image/jpeg", data)
 }
 
+func (h *CameraHandler) GetWorkerStatus(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("invalid uuid format"))
+		return
+	}
+
+	if h.camera.recognitionClient == nil {
+		c.JSON(http.StatusOK, gin.H{"cameraId": id.String(), "status": "unavailable", "fps": 0})
+		return
+	}
+
+	ctx := c.Request.Context()
+	resp, err := h.camera.recognitionClient.GetWorkerStatus(ctx, id.String())
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"cameraId": id.String(), "status": "unavailable", "fps": 0})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"cameraId": resp.CameraId,
+		"status":   resp.Status,
+		"fps":      resp.Fps,
+	})
+}
+
 func (h *CameraHandler) validateRequestBody(c *gin.Context, req any) error {
 	if err := c.ShouldBindJSON(req); err != nil {
 		return err
@@ -341,12 +353,49 @@ func (h *CameraHandler) validateRequestBody(c *gin.Context, req any) error {
 	return nil
 }
 
+func (h *CameraHandler) GetHLSPlaylist(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := uuid.Parse(id); err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("invalid uuid format"))
+		return
+	}
+	if h.camera.hlsManager == nil {
+		exception.HttpResponseException(c, exception.ServiceUnavailableError("HLS streaming not configured"))
+		return
+	}
+	playlistPath := filepath.Join(h.camera.hlsManager.HLSDir(), id, "index.m3u8")
+	c.Header("Content-Type", "application/vnd.apple.mpegurl")
+	c.Header("Cache-Control", "no-cache")
+	c.File(playlistPath)
+}
+
+func (h *CameraHandler) GetHLSSegment(c *gin.Context) {
+	id := c.Param("id")
+	if _, err := uuid.Parse(id); err != nil {
+		exception.HttpResponseException(c, exception.RequestValidationError("invalid uuid format"))
+		return
+	}
+	segment := c.Param("segment")
+	if strings.Contains(segment, "/") || strings.Contains(segment, "..") {
+		exception.HttpResponseException(c, exception.RequestValidationError("invalid segment name"))
+		return
+	}
+	if h.camera.hlsManager == nil {
+		exception.HttpResponseException(c, exception.ServiceUnavailableError("HLS streaming not configured"))
+		return
+	}
+	segmentPath := filepath.Join(h.camera.hlsManager.HLSDir(), id, segment)
+	c.Header("Content-Type", "video/mp2t")
+	c.Header("Cache-Control", "no-cache")
+	c.File(segmentPath)
+}
+
 func (h *CameraHandler) startWorker(ctx context.Context, camera *model.Camera) error {
 	if h.camera.recognitionClient == nil {
 		return fmt.Errorf("recognition client not available")
 	}
 
-	zone := extractZoneConfig(camera.Metadata)
+	zone := ExtractZoneConfig(camera.Metadata)
 
 	resp, err := h.camera.recognitionClient.StartWorker(ctx, camera.Guid.String(), camera.StreamHd, zone)
 	if err != nil {
@@ -357,12 +406,18 @@ func (h *CameraHandler) startWorker(ctx context.Context, camera *model.Camera) e
 		return fmt.Errorf("failed to start worker: %s", resp.Error)
 	}
 
-	log.Printf("Started worker for camera %s: %s", camera.Guid, resp.Message)
+	slog.Info("Started worker for camera", "camera_id", camera.Guid, "message", resp.Message)
+
+	if h.camera.hlsManager != nil {
+		if hlsErr := h.camera.hlsManager.Start(camera.Guid.String(), camera.Stream); hlsErr != nil {
+			slog.Warn("Failed to start HLS for camera", "camera_id", camera.Guid, "error", hlsErr)
+		}
+	}
+
 	return nil
 }
 
-// extractZoneConfig parses camera metadata and returns a ZoneConfig proto if zone data is present.
-func extractZoneConfig(metadata []byte) *pb.ZoneConfig {
+func ExtractZoneConfig(metadata []byte) *pb.ZoneConfig {
 	if len(metadata) == 0 {
 		return nil
 	}
@@ -415,6 +470,13 @@ func (h *CameraHandler) stopWorker(ctx context.Context, cameraID string) error {
 		return fmt.Errorf("failed to stop worker: %s", resp.Error)
 	}
 
-	log.Printf("Stopped worker for camera %s: %s", cameraID, resp.Message)
+	slog.Info("Stopped worker for camera", "camera_id", cameraID, "message", resp.Message)
+
+	if h.camera.hlsManager != nil {
+		if hlsErr := h.camera.hlsManager.Stop(cameraID); hlsErr != nil {
+			slog.Warn("Failed to stop HLS for camera", "camera_id", cameraID, "error", hlsErr)
+		}
+	}
+
 	return nil
 }

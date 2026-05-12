@@ -45,11 +45,6 @@ export function CamTile({ camera, snapshotUrl, small }: CamTileProps) {
           <span className={`cam-live-pill ${live ? '' : 'cam-live-off'}`}>
             {live ? 'LIVE' : 'OFF'}
           </span>
-          {live && (
-            <span className="cam-live-pill" style={{ fontFamily: 'var(--font-mono)' }}>
-              25fps
-            </span>
-          )}
         </div>
         <div className="cam-tile-meta">
           {live && <span>{time}</span>}

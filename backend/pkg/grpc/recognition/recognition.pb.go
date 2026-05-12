@@ -1240,6 +1240,7 @@ type GetWorkerStatusResponse struct {
 	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"` // "running", "stopped", "error"
 	StartedAt     string                 `protobuf:"bytes,3,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	Error         string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	Fps           float32                `protobuf:"fixed32,5,opt,name=fps,proto3" json:"fps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1300,6 +1301,13 @@ func (x *GetWorkerStatusResponse) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *GetWorkerStatusResponse) GetFps() float32 {
+	if x != nil {
+		return x.Fps
+	}
+	return 0
 }
 
 // TestVideoRequest accepts raw video bytes for test recognition
@@ -1667,13 +1675,14 @@ const file_recognition_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\"5\n" +
 	"\x16GetWorkerStatusRequest\x12\x1b\n" +
-	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\"\x83\x01\n" +
+	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\"\x95\x01\n" +
 	"\x17GetWorkerStatusResponse\x12\x1b\n" +
 	"\tcamera_id\x18\x01 \x01(\tR\bcameraId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1d\n" +
 	"\n" +
 	"started_at\x18\x03 \x01(\tR\tstartedAt\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"u\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\x12\x10\n" +
+	"\x03fps\x18\x05 \x01(\x02R\x03fps\"u\n" +
 	"\x10TestVideoRequest\x12\x1d\n" +
 	"\n" +
 	"video_data\x18\x01 \x01(\fR\tvideoData\x12%\n" +

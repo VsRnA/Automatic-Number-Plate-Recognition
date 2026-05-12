@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { api } from '@/shared/api'
 import {
   AreaChart,
   Area,
@@ -271,7 +272,23 @@ type Period = (typeof PERIODS)[number]['id']
 
 export function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>('30d')
+  const [exporting, setExporting] = useState(false)
   const { data, isLoading, isError, dataUpdatedAt } = useDashboard()
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await api.getBlob('/recognition/export/excel')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'recognition_history.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
   const refreshTime = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
     : null
@@ -295,9 +312,9 @@ export function AnalyticsPage() {
               </button>
             ))}
           </div>
-          <button className="btn">
+          <button className="btn" onClick={handleExport} disabled={exporting}>
             <DownloadIcon />
-            Экспорт
+            {exporting ? 'Экспорт…' : 'Экспорт'}
           </button>
         </div>
       </div>

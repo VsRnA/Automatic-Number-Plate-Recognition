@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -16,9 +16,9 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure/database"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/handler"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/model"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/worker"
-	pb "github.com/VsRnA/Automatic-Number-Plate-Recognition/pkg/grpc/recognition"
 )
 
 type App struct {
@@ -64,8 +64,11 @@ func (a *App) Run() error {
 	redisClient := infrastructure.NewRedisClient(cfg.RedisHost, cfg.RedisPort)
 	slog.Info("Redis client initialized", "host", cfg.RedisHost, "port", cfg.RedisPort)
 
+	hlsManager := infrastructure.NewFFmpegManager(cfg.HLSDir)
+	slog.Info("HLS manager initialized", "dir", cfg.HLSDir)
+
 	repositories := repository.NewRepository(db)
-	handlers := handler.NewHandler(*cfg, repositories, recognitionClient, db)
+	handlers := handler.NewHandler(*cfg, repositories, recognitionClient, hlsManager, db)
 
 	srv := infrastructure.NewHttpServer(cfg.HTTPPort, handlers.InitRoutes())
 
@@ -95,7 +98,8 @@ func (a *App) Run() error {
 	go runExpirationTicker(workerCtx, db, 1*time.Hour)
 
 	if recognitionClient != nil {
-		go restoreWorkers(recognitionClient, repositories.Camera)
+		go restoreWorkers(recognitionClient, repositories.Camera, hlsManager)
+		go workerHealthChecker(workerCtx, recognitionClient, repositories.Camera, hlsManager)
 	}
 
 	quit := make(chan os.Signal, 1)
@@ -118,6 +122,8 @@ func (a *App) Run() error {
 	if recognitionClient != nil {
 		recognitionClient.Close()
 	}
+
+	hlsManager.StopAll()
 
 	if err := redisClient.Close(); err != nil {
 		slog.Error("Error closing Redis client", "error", err)
@@ -147,7 +153,53 @@ func runExpirationTicker(ctx context.Context, db *gorm.DB, interval time.Duratio
 	}
 }
 
-func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo repository.ICameraRepository) {
+func workerHealthChecker(ctx context.Context, client *infrastructure.RecognitionClient, cameraRepo repository.ICameraRepository, hls *infrastructure.FFmpegManager) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			isEnabled := true
+			cameras, err := cameraRepo.List(&repository.CameraFilters{IsEnabled: &isEnabled, Limit: 1000})
+			if err != nil {
+				slog.Error("WorkerHealthChecker: failed to list cameras", "error", err)
+				continue
+			}
+			var wg sync.WaitGroup
+			for _, cam := range cameras {
+				wg.Add(1)
+				go func(cam model.Camera) {
+					defer wg.Done()
+					statusCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+					statusResp, statusErr := client.GetWorkerStatus(statusCtx, cam.Guid.String())
+					cancel()
+					if statusErr != nil || statusResp.Status != "running" {
+						startCtx, startCancel := context.WithTimeout(ctx, 5*time.Second)
+						zone := handler.ExtractZoneConfig(cam.Metadata)
+						startResp, startErr := client.StartWorker(startCtx, cam.Guid.String(), cam.StreamHd, zone)
+						startCancel()
+						if startErr != nil || !startResp.Success {
+							slog.Warn("WorkerHealthChecker: failed to start worker", "camera_id", cam.Guid, "error", startErr)
+						} else {
+							slog.Info("WorkerHealthChecker: started worker", "camera_id", cam.Guid)
+							if hls != nil {
+								if hlsErr := hls.Start(cam.Guid.String(), cam.Stream); hlsErr != nil {
+									slog.Warn("WorkerHealthChecker: failed to start HLS", "camera_id", cam.Guid, "error", hlsErr)
+								}
+							}
+						}
+					}
+				}(cam)
+			}
+			wg.Wait()
+		}
+	}
+}
+
+func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo repository.ICameraRepository, hls *infrastructure.FFmpegManager) {
 	const maxAttempts = 30
 	const retryInterval = 5 * time.Second
 
@@ -175,13 +227,18 @@ func restoreWorkers(client *infrastructure.RecognitionClient, cameraRepo reposit
 
 	for _, cam := range cameras {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		zone := extractZoneFromMetadata(cam.Metadata)
+		zone := handler.ExtractZoneConfig(cam.Metadata)
 		resp, err := client.StartWorker(ctx, cam.Guid.String(), cam.StreamHd, zone)
 		cancel()
 		if err != nil || !resp.Success {
 			slog.Warn("Failed to start worker for camera on startup", "camera_id", cam.Guid, "error", err)
 		} else {
 			slog.Info("Started worker for camera on startup", "camera_id", cam.Guid)
+			if hls != nil {
+				if hlsErr := hls.Start(cam.Guid.String(), cam.Stream); hlsErr != nil {
+					slog.Warn("Failed to start HLS for camera on startup", "camera_id", cam.Guid, "error", hlsErr)
+				}
+			}
 		}
 	}
 }
@@ -199,32 +256,4 @@ func parseLogLevel(s string) slog.Level {
 	}
 }
 
-func extractZoneFromMetadata(metadata []byte) *pb.ZoneConfig {
-	if len(metadata) == 0 {
-		return nil
-	}
-	var meta struct {
-		Zone *struct {
-			Points []struct {
-				X float64 `json:"x"`
-				Y float64 `json:"y"`
-			} `json:"points"`
-			MinPlateRel float64 `json:"minPlateRel"`
-			MaxPlateRel float64 `json:"maxPlateRel"`
-			Tilt        int32   `json:"tilt"`
-		} `json:"zone"`
-	}
-	if err := json.Unmarshal(metadata, &meta); err != nil || meta.Zone == nil || len(meta.Zone.Points) < 3 {
-		return nil
-	}
-	points := make([]*pb.ZonePoint, 0, len(meta.Zone.Points))
-	for _, p := range meta.Zone.Points {
-		points = append(points, &pb.ZonePoint{X: p.X, Y: p.Y})
-	}
-	return &pb.ZoneConfig{
-		Points:      points,
-		MinPlateRel: meta.Zone.MinPlateRel,
-		MaxPlateRel: meta.Zone.MaxPlateRel,
-		MaxTilt:     meta.Zone.Tilt,
-	}
-}
+

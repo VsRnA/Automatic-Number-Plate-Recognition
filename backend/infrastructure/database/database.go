@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -29,7 +29,7 @@ func InitDB(cfg DBConfig) (*gorm.DB, error) {
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
@@ -47,7 +47,7 @@ func InitDB(cfg DBConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	log.Println("Database connected and migrations applied successfully")
+	slog.Info("Database connected and migrations applied successfully")
 	return db, nil
 }
 
@@ -95,7 +95,7 @@ func runMigrations(db *gorm.DB) error {
 			return fmt.Errorf("record migration %s: %w", name, err)
 		}
 
-		log.Printf("Migration applied: %s", name)
+		slog.Info("Migration applied", "filename", name)
 	}
 
 	return nil

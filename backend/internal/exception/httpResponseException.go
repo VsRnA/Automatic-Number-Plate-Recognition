@@ -1,12 +1,12 @@
 package exception
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/gin-gonic/gin"
 )
 
 func HttpResponseException(c *gin.Context, apiError *ApiError) {
-	log.Printf("HttpResponseException guid:%s, code:%s, message:%s", apiError.Guid, apiError.Code, apiError.Message)
+	slog.Warn("HTTP error response", "guid", apiError.Guid, "code", apiError.Code, "message", apiError.Message, "status", apiError.Status)
 	c.AbortWithStatusJSON(apiError.Status, gin.H{"error": apiError})
 }

@@ -1,10 +1,12 @@
 import concurrent.futures
 import logging
 import os
+import queue
 import socket
 import threading
 import time
 import uuid
+from collections import deque
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -27,7 +29,6 @@ class WorkerThread(threading.Thread):
         worker: Worker,
         recognition_service,
         redis_producer,
-        frame_interval: int = 2,
         reconnect_delay: int = 5,
         max_retries: int = 3,
         tracker_stale_frames: int = 15,
@@ -42,13 +43,12 @@ class WorkerThread(threading.Thread):
         self.worker = worker
         self.recognition_service = recognition_service
         self.redis_producer = redis_producer
-        self.frame_interval = frame_interval
         self.reconnect_delay = reconnect_delay
         self.max_retries = max_retries
 
         self._zone = zone
         self._stop_event = threading.Event()
-        self._frame_count = 0
+        self._fps_timestamps: deque[float] = deque(maxlen=60)
         self._detection_executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=2,
             thread_name_prefix=f"detect-{worker.camera_id[:8]}",
@@ -66,6 +66,13 @@ class WorkerThread(threading.Thread):
             cooldown_seconds=tracker_cooldown_seconds,
             text_match_enabled=tracker_text_match_enabled,
         )
+
+    @property
+    def fps(self) -> float:
+        ts = list(self._fps_timestamps)  # snapshot for thread safety
+        if len(ts) < 2:
+            return 0.0
+        return (len(ts) - 1) / (ts[-1] - ts[0])
 
     def run(self):
         set_camera_id(self.worker.camera_id)
@@ -172,42 +179,76 @@ class WorkerThread(threading.Thread):
         return True
 
     def _process_stream(self):
-        cap: cv2.VideoCapture | None = None
+        if not self._check_rtsp_connectivity(self.worker.stream):
+            raise RuntimeError(f"RTSP server not reachable: {self.worker.stream}")
+
+        frame_queue: queue.Queue = queue.Queue(maxsize=1)
+        stream_error: list[Exception] = []
+        processor_done = threading.Event()
+
+        def _read_loop() -> None:
+            cap: cv2.VideoCapture | None = None
+            try:
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;10000000"
+                cap = cv2.VideoCapture(self.worker.stream, cv2.CAP_FFMPEG)
+                if not cap.isOpened():
+                    raise RuntimeError(f"Failed to open RTSP stream: {self.worker.stream}")
+
+                logger.info("Stream opened", extra={"camera_id": self.worker.camera_id})
+
+                while not self._stop_event.is_set() and not processor_done.is_set():
+                    ret, frame = cap.read()
+                    if not ret:
+                        logger.warning(
+                            "Failed to read frame",
+                            extra={
+                                "event": "stream_frame_read_failed",
+                                "camera_id": self.worker.camera_id,
+                            },
+                        )
+                        break
+                    if frame_queue.full():
+                        try:
+                            frame_queue.get_nowait()
+                        except queue.Empty:
+                            pass
+                    frame_queue.put_nowait(frame)
+            except Exception as exc:
+                stream_error.append(exc)
+            finally:
+                if cap is not None:
+                    cap.release()
+                try:
+                    frame_queue.put_nowait(None)
+                except queue.Full:
+                    try:
+                        frame_queue.get_nowait()
+                    except queue.Empty:
+                        pass
+                    frame_queue.put_nowait(None)
+
+        reader = threading.Thread(
+            target=_read_loop,
+            daemon=True,
+            name=f"reader-{self.worker.camera_id[:8]}",
+        )
+        reader.start()
+
         try:
-            if not self._check_rtsp_connectivity(self.worker.stream):
-                raise RuntimeError(f"RTSP server not reachable: {self.worker.stream}")
-
-            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|stimeout;10000000"
-            cap = cv2.VideoCapture(self.worker.stream, cv2.CAP_FFMPEG)
-
-            if not cap.isOpened():
-                raise RuntimeError(f"Failed to open RTSP stream: {self.worker.stream}")
-
-            logger.info(
-                "Stream opened",
-                extra={"camera_id": self.worker.camera_id},
-            )
-            self._frame_count = 0
-
             while not self._stop_event.is_set():
-                ret, frame = cap.read()
-                if not ret:
-                    logger.warning(
-                        "Failed to read frame",
-                        extra={
-                            "event": "stream_frame_read_failed",
-                            "camera_id": self.worker.camera_id,
-                        },
-                    )
+                try:
+                    frame = frame_queue.get(timeout=1.0)
+                except queue.Empty:
+                    continue
+                if frame is None:
                     break
-
-                self._frame_count += 1
-
-                if self._frame_count % self.frame_interval == 0:
-                    self._process_frame(frame)
+                self._process_frame(frame)
         finally:
-            if cap is not None:
-                cap.release()
+            processor_done.set()
+            reader.join(timeout=5.0)
+
+        if stream_error:
+            raise stream_error[0]
 
     def _process_frame(self, frame: np.ndarray):
         if self._zone is not None:
@@ -228,6 +269,8 @@ class WorkerThread(threading.Thread):
         for confirmed in confirmed_list:
             future = self._upload_executor.submit(self._publish_confirmed, confirmed)
             future.add_done_callback(self._on_publish_done)
+
+        self._fps_timestamps.append(time.monotonic())
 
     def _publish_confirmed(self, confirmed: ConfirmedDetection):
         frame = confirmed.best_frame
