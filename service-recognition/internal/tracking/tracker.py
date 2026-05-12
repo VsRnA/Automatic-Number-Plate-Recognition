@@ -132,6 +132,16 @@ class Tracker:
                 new_track.readings.append((det.plate_text, det.ocr_confidence))
                 self._tracks.append(new_track)
                 track = new_track
+                logger.debug(
+                    "Tracker: new track started",
+                    extra={
+                        "event": "track_started",
+                        "track_id": new_track.id,
+                        "plate_text": det.plate_text,
+                        "confidence": round(det.ocr_confidence, 4),
+                        "has_vehicle": det.vehicle is not None,
+                    },
+                )
 
             if not track.published:
                 result = self._try_confirm_early(track)
@@ -139,8 +149,13 @@ class Tracker:
                     track.published = True
                     confirmed.append(result)
                     logger.info(
-                        f"Tracker: early confirmed '{result.plate_text}' "
-                        f"({len(track.readings)} readings)"
+                        "Tracker: plate confirmed (early)",
+                        extra={
+                            "event": "plate_confirmed",
+                            "plate_text": result.plate_text,
+                            "readings_count": len(track.readings),
+                            "confidence": round(result.confidence, 4),
+                        },
                     )
 
         still_alive: list[Track] = []
@@ -152,8 +167,13 @@ class Tracker:
                 if result is not None:
                     confirmed.append(result)
                     logger.info(
-                        f"Tracker: confirmed stale track '{result.plate_text}' "
-                        f"({len(track.readings)} readings)"
+                        "Tracker: plate confirmed (stale)",
+                        extra={
+                            "event": "plate_confirmed",
+                            "plate_text": result.plate_text,
+                            "readings_count": len(track.readings),
+                            "confidence": round(result.confidence, 4),
+                        },
                     )
                 elif len(track.readings) < self._min_readings:
                     logger.debug(
@@ -180,8 +200,13 @@ class Tracker:
             if result is not None:
                 confirmed.append(result)
                 logger.info(
-                    f"Tracker: flushing track '{result.plate_text}' "
-                    f"({len(track.readings)} readings)"
+                    "Tracker: plate confirmed (flush)",
+                    extra={
+                        "event": "plate_confirmed",
+                        "plate_text": result.plate_text,
+                        "readings_count": len(track.readings),
+                        "confidence": round(result.confidence, 4),
+                    },
                 )
         self._tracks = []
         return confirmed

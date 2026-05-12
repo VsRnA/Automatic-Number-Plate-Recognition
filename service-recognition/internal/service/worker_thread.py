@@ -341,6 +341,7 @@ class WorkerThread(threading.Thread):
         logger.info(
             "Plate confirmed and published",
             extra={
+                "event": "plate_confirmed",
                 "camera_id": camera_id,
                 "plate_text": confirmed.plate_text,
                 "confidence": round(confirmed.confidence, 4),

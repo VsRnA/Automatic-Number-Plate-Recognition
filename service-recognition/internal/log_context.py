@@ -19,7 +19,8 @@ def get_camera_id() -> str | None:
 
 class CameraContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        record.camera_id = get_camera_id()
+        if not hasattr(record, 'camera_id') or record.camera_id is None:
+            record.camera_id = get_camera_id()
         return True
 
 
