@@ -201,12 +201,15 @@ class RecognitionServicer(recognition_pb2_grpc.RecognitionServiceServicer):
                 status=WorkerStatus.STOPPED.value,
                 started_at="",
                 error="Worker not found",
+                fps=0.0,
             )
+        fps = self._worker_manager.get_worker_fps(request.camera_id)
         return recognition_pb2.GetWorkerStatusResponse(
             camera_id=worker.camera_id,
             status=worker.status.value,
             started_at=worker.started_at.isoformat() if worker.started_at else "",
             error=worker.error,
+            fps=fps,
         )
 
 

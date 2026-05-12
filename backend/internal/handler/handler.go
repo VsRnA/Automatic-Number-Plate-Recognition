@@ -24,12 +24,12 @@ type Handler struct {
 	tokenRepo          repository.IApiTokenRepository
 }
 
-func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient, db *gorm.DB) *Handler {
+func NewHandler(cfg config.Config, repo *repository.Repository, recognitionClient *infrastructure.RecognitionClient, hlsManager *infrastructure.FFmpegManager, db *gorm.DB) *Handler {
 	validate := validator.New()
 
 	return &Handler{
 		Plate:              NewPlateHandler(repo.Plate, repo.PlateAccessPoint, validate, db),
-		Camera:             NewCameraHandler(repo.Camera, recognitionClient, validate),
+		Camera:             NewCameraHandler(repo.Camera, recognitionClient, hlsManager, validate),
 		Recognition:        NewRecognitionHandler(recognitionClient),
 		TestRecognition:    NewTestRecognitionHandler(recognitionClient),
 		AccessPoint:        NewAccessPointHandler(repo.AccessPoint, validate),
@@ -66,6 +66,9 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			cameras.GET("", h.Camera.ListCameras)
 			cameras.GET("/:id", h.Camera.GetCamera)
 			cameras.GET("/:id/snapshot", h.Camera.GetSnapshot)
+			cameras.GET("/:id/worker-status", h.Camera.GetWorkerStatus)
+			cameras.GET("/:id/hls/index.m3u8", h.Camera.GetHLSPlaylist)
+			cameras.GET("/:id/hls/:segment", h.Camera.GetHLSSegment)
 			cameras.PUT("/:id", h.Camera.UpdateCamera)
 			cameras.DELETE("/:id", h.Camera.DeleteCamera)
 		}
@@ -86,6 +89,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 			recognition.POST("/test", h.Recognition.TestRecognize)
 			recognition.GET("/list", h.RecognitionHistory.ListHistory)
 			recognition.GET("/export", h.RecognitionHistory.ExportHistoryCSV)
+			recognition.GET("/export/excel", h.RecognitionHistory.ExportHistoryExcel)
 		}
 
 		test := api.Group("/test")

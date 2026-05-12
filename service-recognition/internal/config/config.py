@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     s3_use_ssl: bool = False
     s3_region: str = ""
 
-    frame_interval: int = 1
     confidence_threshold: float = 0.5
     worker_reconnect_delay: int = 5
     worker_max_retries: int = 3

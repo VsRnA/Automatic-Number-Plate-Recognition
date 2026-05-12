@@ -163,6 +163,7 @@ message GetWorkerStatusResponse {
   string status = 2;  // "running", "stopped", "error"
   string started_at = 3;
   string error = 4;
+  float fps = 5;
 }
 
 // TestVideoRequest accepts raw video bytes for test recognition

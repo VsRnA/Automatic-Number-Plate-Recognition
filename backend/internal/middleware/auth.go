@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -66,7 +66,7 @@ func Auth(cfg config.Config, tokenRepo repository.IApiTokenRepository) gin.Handl
 
 			go func(id uuid.UUID) {
 				if err := tokenRepo.UpdateLastUsed(id, time.Now()); err != nil {
-					log.Printf("auth: failed to update last_used for token %v: %v", id, err)
+					slog.Warn("auth: failed to update last_used for token", "token_id", id, "error", err)
 				}
 			}(token.ID)
 

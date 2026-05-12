@@ -7,6 +7,7 @@ export const cameraKeys = {
   all: ['cameras'] as const,
   list: () => [...cameraKeys.all, 'list'] as const,
   detail: (id: string) => [...cameraKeys.all, 'detail', id] as const,
+  workerStatus: (id: string) => [...cameraKeys.detail(id), 'workerStatus'] as const,
 }
 
 export const useCameras = () =>
@@ -43,6 +44,16 @@ export const useUpdateCamera = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateCameraDto }) => cameraApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: cameraKeys.all }),
+  })
+}
+
+export function useCameraWorkerStatus(cameraId: string | undefined, workerEnabled: boolean) {
+  return useQuery({
+    queryKey: cameraKeys.workerStatus(cameraId ?? ''),
+    queryFn: () => cameraApi.workerStatus(cameraId!),
+    enabled: !!cameraId && workerEnabled,
+    refetchInterval: 5000,
+    staleTime: 4000,
   })
 }
 

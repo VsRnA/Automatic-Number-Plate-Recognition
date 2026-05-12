@@ -53,4 +53,7 @@ export const cameraApi = {
   delete: (id: string): Promise<void> => api.delete(`/cameras/${id}`),
 
   snapshot: (id: string): Promise<Blob> => api.getBlob(`/cameras/${id}/snapshot`),
+
+  workerStatus: (id: string): Promise<{ cameraId: string; status: string; fps: number }> =>
+    api.get(`/cameras/${id}/worker-status`),
 }

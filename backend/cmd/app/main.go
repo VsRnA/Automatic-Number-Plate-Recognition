@@ -1,7 +1,8 @@
 package main
 
 import (
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/app"
 )
@@ -9,6 +10,7 @@ import (
 func main() {
 	application := app.New()
 	if err := application.Run(); err != nil {
-		log.Fatalf("Application error: %v", err)
+		slog.Error("Application error", "error", err)
+		os.Exit(1)
 	}
 }

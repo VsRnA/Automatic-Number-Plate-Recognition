@@ -46,7 +46,6 @@ class WorkerManager:
                 worker=worker,
                 recognition_service=self._recognition_service,
                 redis_producer=self._redis_producer,
-                frame_interval=self._settings.frame_interval,
                 reconnect_delay=self._settings.worker_reconnect_delay,
                 max_retries=self._settings.worker_max_retries,
                 tracker_stale_frames=self._settings.tracker_stale_frames,
@@ -86,6 +85,13 @@ class WorkerManager:
     def get_worker_status(self, camera_id: str) -> Worker | None:
         with self._lock:
             return self._workers.get(camera_id)
+
+    def get_worker_fps(self, camera_id: str) -> float:
+        with self._lock:
+            thread = self._threads.get(camera_id)
+            if thread is None:
+                return 0.0
+            return thread.fps
 
     def list_workers(self) -> list[Worker]:
         with self._lock:

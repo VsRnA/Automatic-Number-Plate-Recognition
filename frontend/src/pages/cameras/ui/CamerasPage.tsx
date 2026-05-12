@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Camera } from '@/entities/camera'
-import { useCameras, useDeleteCamera, useCameraSnapshot } from '@/entities/camera'
+import { useCameras, useDeleteCamera, useCameraSnapshot, useCameraWorkerStatus } from '@/entities/camera'
 import { useAccessPoints } from '@/entities/accessPoint'
 import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
@@ -259,10 +259,19 @@ interface CameraCardProps {
 }
 
 function CameraCard({ camera, onEdit, onDelete }: CameraCardProps) {
+  const navigate = useNavigate()
   const { snapshotUrl } = useCameraSnapshot(camera.guid)
+  const { data: workerStatus } = useCameraWorkerStatus(camera.guid, camera.isEnabled)
+  const fps = workerStatus?.fps ?? 0
   return (
     <div className="cam-card">
-      <CamTile camera={camera} snapshotUrl={snapshotUrl} />
+      <div
+        style={{ cursor: camera.isEnabled ? 'pointer' : 'default' }}
+        onClick={() => camera.isEnabled && navigate(`/cameras/${camera.guid}/live`)}
+        title={camera.isEnabled ? 'Открыть прямой эфир' : undefined}
+      >
+        <CamTile camera={camera} snapshotUrl={snapshotUrl} />
+      </div>
       <div className="cam-card-body">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 10 }}>
           <div style={{ minWidth: 0 }}>
@@ -270,7 +279,14 @@ function CameraCard({ camera, onEdit, onDelete }: CameraCardProps) {
               {camera.name}
             </div>
           </div>
-          <StatusDot kind={camera.isEnabled ? 'active' : 'off'} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {camera.isEnabled && fps > 0 && (
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--fg-subtle)', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 4, padding: '1px 5px', fontVariantNumeric: 'tabular-nums' }}>
+                {fps.toFixed(1)} fps
+              </span>
+            )}
+            <StatusDot kind={camera.isEnabled ? 'active' : 'off'} />
+          </div>
         </div>
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}>

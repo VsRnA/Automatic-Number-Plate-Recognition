@@ -24,9 +24,13 @@ class CameraContextFilter(logging.Filter):
 
 
 try:
-    from pythonjsonlogger import jsonlogger
+    try:
+        from pythonjsonlogger.json import JsonFormatter as _JsonFormatterBase  # v3.x
+    except ImportError:
+        from pythonjsonlogger import jsonlogger  # v2.x
+        _JsonFormatterBase = jsonlogger.JsonFormatter
 
-    class _JsonFormatter(jsonlogger.JsonFormatter):
+    class _JsonFormatter(_JsonFormatterBase):
         def add_fields(
             self,
             log_record: dict,
