@@ -2,6 +2,7 @@ import logging
 from io import BytesIO
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,10 @@ class S3Client:
             aws_secret_access_key=secret_key or None,
             region_name=region or None,
             use_ssl=use_ssl,
+            config=Config(
+                signature_version="s3v4",
+                s3={"addressing_style": "path"},
+            ),
         )
 
     def upload_file(self, file_data: bytes, file_name: str, content_type: str = "image/jpeg") -> str:
