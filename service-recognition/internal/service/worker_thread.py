@@ -303,39 +303,45 @@ class WorkerThread(threading.Thread):
 
         try:
             screenshot_url = self.recognition_service.save_screenshot(frame, plate_result, plate_bbox, camera_id, event_id)
-        except Exception:
+        except Exception as exc:
             logger.warning(
                 "Screenshot save failed",
                 extra={
                     "event": "s3_upload_failed",
                     "camera_id": camera_id,
                     "upload_type": "screenshot",
+                    "error": str(exc),
                 },
+                exc_info=True,
             )
 
         if vehicle_bbox is not None:
             try:
                 car_crop_url = self.recognition_service.save_car_crop(frame, vehicle_bbox, confirmed.plate_text, camera_id, event_id)
-            except Exception:
+            except Exception as exc:
                 logger.warning(
                     "Car crop save failed",
                     extra={
                         "event": "s3_upload_failed",
                         "camera_id": camera_id,
                         "upload_type": "car_crop",
+                        "error": str(exc),
                     },
+                    exc_info=True,
                 )
 
         try:
             plate_crop_url = self.recognition_service.save_plate_crop(frame, plate_bbox, confirmed.plate_text, camera_id, event_id)
-        except Exception:
+        except Exception as exc:
             logger.warning(
                 "Plate crop save failed",
                 extra={
                     "event": "s3_upload_failed",
                     "camera_id": camera_id,
                     "upload_type": "plate_crop",
+                    "error": str(exc),
                 },
+                exc_info=True,
             )
 
         logger.info(
