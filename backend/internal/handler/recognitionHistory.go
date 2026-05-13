@@ -12,6 +12,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/exception"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/model"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 )
 
@@ -27,6 +28,13 @@ type RecognitionHistoryHandler struct {
 
 func NewRecognitionHistoryHandler(repo repository.IRecognitionHistoryRepository) IRecognitionHistoryHandler {
 	return &RecognitionHistoryHandler{repo: repo}
+}
+
+type paginatedHistoryResponse struct {
+	Data   []model.RecognitionHistory `json:"data"`
+	Total  int64                      `json:"total"`
+	Limit  int                        `json:"limit"`
+	Offset int                        `json:"offset"`
 }
 
 func (h *RecognitionHistoryHandler) ListHistory(c *gin.Context) {
@@ -52,7 +60,18 @@ func (h *RecognitionHistoryHandler) ListHistory(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, records)
+	total, err := h.repo.Count(filters)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed to count recognition history: "+err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, paginatedHistoryResponse{
+		Data:   records,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 func (h *RecognitionHistoryHandler) ExportHistoryCSV(c *gin.Context) {

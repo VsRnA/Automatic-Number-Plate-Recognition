@@ -1,5 +1,5 @@
 import { api } from '@/shared/api'
-import type { RecognitionHistory } from '../model/types'
+import type { PaginatedHistoryResponse } from '../model/types'
 
 export interface RecognitionHistoryListParams {
   cameraGuid?: string
@@ -12,7 +12,7 @@ export interface RecognitionHistoryListParams {
 }
 
 export const recognitionHistoryApi = {
-  list: (params: RecognitionHistoryListParams = {}): Promise<RecognitionHistory[]> => {
+  list: (params: RecognitionHistoryListParams = {}): Promise<PaginatedHistoryResponse> => {
     const query = new URLSearchParams()
     if (params.cameraGuid) query.set('cameraGuid', params.cameraGuid)
     if (params.accessPointId !== undefined) query.set('accessPointId', String(params.accessPointId))
@@ -22,6 +22,6 @@ export const recognitionHistoryApi = {
     if (params.limit !== undefined) query.set('limit', String(params.limit))
     if (params.offset !== undefined) query.set('offset', String(params.offset))
     const qs = query.toString()
-    return api.get<RecognitionHistory[]>(`/recognition/list${qs ? `?${qs}` : ''}`)
+    return api.get<PaginatedHistoryResponse>(`/recognition/list${qs ? `?${qs}` : ''}`)
   },
 }

@@ -3,7 +3,7 @@ import { useRecognitionHistory } from '@/entities/recognitionHistory'
 import { useAccessPoints } from '@/entities/accessPoint'
 import { formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { TableSkeleton, Icon, PageHeader, PlateBadge, ConfidenceBar } from '@/shared/ui'
+import { TableSkeleton, Icon, PageHeader, PlateBadge, ConfidenceBar, Pagination } from '@/shared/ui'
 
 function AnprSnapshot() {
   return (
@@ -13,20 +13,14 @@ function AnprSnapshot() {
       border: '1px solid rgba(255,255,255,0.08)',
       display: 'grid', placeItems: 'center', flexShrink: 0, position: 'relative', overflow: 'hidden',
     }}>
-      {/* Night scene silhouette */}
       <svg width="64" height="40" viewBox="0 0 64 40" fill="none" style={{ position: 'absolute', inset: 0 }}>
-        {/* Ground */}
         <rect x="0" y="28" width="64" height="12" fill="rgba(255,255,255,0.04)" />
-        {/* Road markings */}
         <rect x="28" y="30" width="8" height="2" rx="1" fill="rgba(255,255,255,0.15)" />
         <rect x="28" y="34" width="8" height="2" rx="1" fill="rgba(255,255,255,0.15)" />
-        {/* Car silhouette */}
         <rect x="18" y="22" width="28" height="8" rx="2" fill="rgba(255,255,255,0.1)" />
         <rect x="22" y="17" width="20" height="7" rx="2" fill="rgba(255,255,255,0.07)" />
-        {/* Headlights */}
         <circle cx="20" cy="28" r="2" fill="rgba(255,230,100,0.5)" />
         <circle cx="44" cy="28" r="2" fill="rgba(255,230,100,0.5)" />
-        {/* Plate highlight */}
         <rect x="26" y="25" width="12" height="4" rx="1" fill="rgba(120,170,255,0.35)" />
       </svg>
     </div>
@@ -48,26 +42,50 @@ function SnapshotThumb({ url, plateNumber }: { url: string | null; plateNumber: 
   return <AnprSnapshot />
 }
 
+const PAGE_SIZE_OPTIONS = [20, 50, 100]
+
 export function HistoryPage() {
   const [search, setSearch] = useState('')
   const [accessPointFilter, setAccessPointFilter] = useState<number | undefined>(undefined)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
 
   const { data: accessPoints = [] } = useAccessPoints()
   const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
 
   const queryParams = {
+    page,
+    limit,
     ...(search.length === 0 || search.length >= 2 ? { plateNumber: search || undefined } : {}),
     ...(accessPointFilter !== undefined ? { accessPointId: accessPointFilter } : {}),
   }
 
-  const { data: records = [], isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
+  const { data, isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
+
+  const records = data?.data ?? []
+  const total = data?.total ?? 0
+
+  function handleSearch(value: string) {
+    setSearch(value)
+    setPage(1)
+  }
+
+  function handleAccessPointFilter(value: number | undefined) {
+    setAccessPointFilter(value)
+    setPage(1)
+  }
+
+  function handleLimitChange(value: number) {
+    setLimit(value)
+    setPage(1)
+  }
 
   return (
     <>
       <PageHeader
         title="История распознаваний"
         crumbs="Основное"
-        count={records.length}
+        count={total}
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-subtle)' }}>
@@ -93,18 +111,27 @@ export function HistoryPage() {
               style={{ paddingLeft: 32 }}
               placeholder="Поиск по номеру…"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => handleSearch(e.target.value)}
             />
           </div>
           <select
             className="select"
             style={{ minWidth: 180 }}
             value={accessPointFilter ?? ''}
-            onChange={e => setAccessPointFilter(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={e => handleAccessPointFilter(e.target.value ? Number(e.target.value) : undefined)}
           >
             <option value="">Все точки доступа</option>
             {accessPoints.map(ap => (
               <option key={ap.id} value={ap.id}>{ap.name}</option>
+            ))}
+          </select>
+          <select
+            className="select"
+            value={limit}
+            onChange={e => handleLimitChange(Number(e.target.value))}
+          >
+            {PAGE_SIZE_OPTIONS.map(n => (
+              <option key={n} value={n}>{n} на странице</option>
             ))}
           </select>
         </div>
@@ -184,6 +211,13 @@ export function HistoryPage() {
                 )}
               </tbody>
             </table>
+
+            <Pagination
+              page={page}
+              total={total}
+              limit={limit}
+              onChange={setPage}
+            />
           </div>
         )}
       </div>

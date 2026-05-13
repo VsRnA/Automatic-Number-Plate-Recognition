@@ -24,6 +24,7 @@ type IRecognitionHistoryRepository interface {
 	Create(h *model.RecognitionHistory) error
 	Update(h *model.RecognitionHistory) error
 	List(filters *RecognitionHistoryFilters) ([]model.RecognitionHistory, error)
+	Count(filters *RecognitionHistoryFilters) (int64, error)
 }
 
 type RecognitionHistoryRepository struct {
@@ -42,28 +43,35 @@ func (r *RecognitionHistoryRepository) Update(h *model.RecognitionHistory) error
 	return r.db.Save(h).Error
 }
 
+func (r *RecognitionHistoryRepository) applyFilters(query *gorm.DB, filters *RecognitionHistoryFilters) *gorm.DB {
+	if filters == nil {
+		return query
+	}
+	if filters.CameraGuid != nil {
+		query = query.Where("\"cameraGuid\" = ?", *filters.CameraGuid)
+	}
+	if filters.AccessPointId != nil {
+		query = query.Where("\"accessPointId\" = ?", *filters.AccessPointId)
+	}
+	if filters.PlateNumber != nil && *filters.PlateNumber != "" {
+		query = query.Where("\"plateNumber\" ILIKE ?", "%"+*filters.PlateNumber+"%")
+	}
+	if filters.AccessGranted != nil {
+		query = query.Where("\"accessGranted\" = ?", *filters.AccessGranted)
+	}
+	if filters.DateFrom != nil {
+		query = query.Where("\"occurredAt\" >= ?", *filters.DateFrom)
+	}
+	if filters.DateTo != nil {
+		query = query.Where("\"occurredAt\" <= ?", *filters.DateTo)
+	}
+	return query
+}
+
 func (r *RecognitionHistoryRepository) List(filters *RecognitionHistoryFilters) ([]model.RecognitionHistory, error) {
-	query := r.db.Model(&model.RecognitionHistory{}).Order("\"occurredAt\" DESC")
+	query := r.applyFilters(r.db.Model(&model.RecognitionHistory{}).Order("\"occurredAt\" DESC"), filters)
 
 	if filters != nil {
-		if filters.CameraGuid != nil {
-			query = query.Where("\"cameraGuid\" = ?", *filters.CameraGuid)
-		}
-		if filters.AccessPointId != nil {
-			query = query.Where("\"accessPointId\" = ?", *filters.AccessPointId)
-		}
-		if filters.PlateNumber != nil && *filters.PlateNumber != "" {
-			query = query.Where("\"plateNumber\" ILIKE ?", "%"+*filters.PlateNumber+"%")
-		}
-		if filters.AccessGranted != nil {
-			query = query.Where("\"accessGranted\" = ?", *filters.AccessGranted)
-		}
-		if filters.DateFrom != nil {
-			query = query.Where("\"occurredAt\" >= ?", *filters.DateFrom)
-		}
-		if filters.DateTo != nil {
-			query = query.Where("\"occurredAt\" <= ?", *filters.DateTo)
-		}
 		if filters.Limit > 0 {
 			query = query.Limit(filters.Limit)
 		}
@@ -77,4 +85,10 @@ func (r *RecognitionHistoryRepository) List(filters *RecognitionHistoryFilters) 
 		return nil, err
 	}
 	return records, nil
+}
+
+func (r *RecognitionHistoryRepository) Count(filters *RecognitionHistoryFilters) (int64, error) {
+	query := r.applyFilters(r.db.Model(&model.RecognitionHistory{}), filters)
+	var count int64
+	return count, query.Count(&count).Error
 }

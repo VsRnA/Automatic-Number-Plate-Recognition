@@ -10,3 +10,10 @@ export interface RecognitionHistory {
   occurredAt: string
   createdAt: string
 }
+
+export interface PaginatedHistoryResponse {
+  data: RecognitionHistory[]
+  total: number
+  limit: number
+  offset: number
+}

@@ -6,9 +6,26 @@ export const historyKeys = {
   list: (params?: object) => [...historyKeys.all, 'list', params] as const,
 }
 
-export const useRecognitionHistory = (params: { limit?: number; plateNumber?: string; accessPointId?: number } = {}) =>
-  useQuery({
-    queryKey: historyKeys.list(params),
-    queryFn: () => recognitionHistoryApi.list({ limit: 50, ...params }),
-    refetchInterval: 15_000,
+export interface UseRecognitionHistoryParams {
+  page?: number
+  limit?: number
+  plateNumber?: string
+  accessPointId?: number
+}
+
+export const useRecognitionHistory = (params: UseRecognitionHistoryParams = {}) => {
+  const limit = params.limit ?? 20
+  const page = params.page ?? 1
+  const offset = (page - 1) * limit
+
+  return useQuery({
+    queryKey: historyKeys.list({ ...params, limit, offset }),
+    queryFn: () => recognitionHistoryApi.list({
+      limit,
+      offset,
+      plateNumber: params.plateNumber,
+      accessPointId: params.accessPointId,
+    }),
+    refetchInterval: page === 1 ? 15_000 : false,
   })
+}

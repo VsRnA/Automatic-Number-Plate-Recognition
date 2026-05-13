@@ -42,7 +42,10 @@ type Config struct {
 }
 
 func LoadEnv() (*Config, error) {
-	_ = godotenv.Load()
+	// Try current directory first, then parent (project root when running from backend/)
+	if err := godotenv.Load(".env"); err != nil {
+		_ = godotenv.Load("../.env")
+	}
 
 	cfg := &Config{
 		Env:      getEnv("ENV", "development"),
