@@ -52,7 +52,7 @@ func (r *PlateRepository) Get(filters *PlateFilters) (*model.Plate, error) {
 
 	if filters != nil {
 		if filters.Number != nil && *filters.Number != "" {
-			query = query.Where("number ILIKE ?", *filters.Number)
+			query = query.Where("CONCAT(number, region) ILIKE ? OR number ILIKE ?", *filters.Number, *filters.Number)
 		}
 
 		if filters.IsEnabled != nil {
