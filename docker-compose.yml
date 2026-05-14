@@ -13,6 +13,8 @@ services:
       - service-recognition
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - DB_HOST=postgres
       - DB_PORT=${DB_PORT}
       - DB_USER=${DB_USER}
