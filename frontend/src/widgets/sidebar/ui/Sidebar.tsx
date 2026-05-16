@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Icon } from '@/shared/ui'
+import { useNotifications } from '@/entities/notification'
 
 interface SidebarProps {
   darkMode: boolean
@@ -7,17 +8,19 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { id: 'cameras',       label: 'Камеры',         icon: 'camera',    badge: null },
-  { id: 'plates',        label: 'Номера',          icon: 'plate',     badge: null },
-  { id: 'access-points', label: 'Точки доступа',   icon: 'gate',      badge: null },
-  { id: 'history',       label: 'История',         icon: 'history',   badge: null },
-  { id: 'analytics',     label: 'Аналитика',       icon: 'analytics', badge: null },
+  { id: 'cameras',       label: 'Камеры',          icon: 'camera',    },
+  { id: 'plates',        label: 'Номера',           icon: 'plate',     },
+  { id: 'access-points', label: 'Точки доступа',    icon: 'gate',      },
+  { id: 'history',       label: 'История',          icon: 'history',   },
+  { id: 'analytics',     label: 'Аналитика',        icon: 'analytics', },
+  { id: 'notifications', label: 'Уведомления',      icon: 'bell',      },
 ]
 
 export function Sidebar({ darkMode, onToggleDark }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const active = location.pathname.split('/')[1] || 'cameras'
+  const { unreadCount } = useNotifications()
 
   return (
     <aside className="sidebar">
@@ -41,7 +44,11 @@ export function Sidebar({ darkMode, onToggleDark }: SidebarProps) {
           >
             <Icon name={item.icon} size={16} />
             <span style={{ flex: 1 }}>{item.label}</span>
-            {item.badge != null && <span className="badge">{item.badge}</span>}
+            {item.id === 'notifications' && unreadCount > 0 && (
+              <span className="badge" style={{ background: 'var(--danger)', color: 'white', minWidth: 18, textAlign: 'center' }}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         ))}
       </div>

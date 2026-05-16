@@ -5,6 +5,24 @@ import { formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
 import { TableSkeleton, Icon, PageHeader, PlateBadge, ConfidenceBar, Pagination } from '@/shared/ui'
 
+type Period = 'today' | '7d' | '30d'
+type ResultFilter = 'all' | 'allowed' | 'blocked' | 'unknown'
+
+function getDateFrom(period: Period): string | undefined {
+  const now = new Date()
+  if (period === 'today') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return start.toISOString()
+  }
+  if (period === '7d') {
+    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  }
+  if (period === '30d') {
+    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  }
+  return undefined
+}
+
 function AnprSnapshot() {
   return (
     <div style={{
@@ -31,22 +49,25 @@ function SnapshotThumb({ url, plateNumber }: { url: string | null; plateNumber: 
   if (url) {
     return (
       <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 5, overflow: 'hidden', flexShrink: 0 }}>
-        <img
-          src={url}
-          alt={plateNumber}
-          style={{ width: 64, height: 40, objectFit: 'cover', display: 'block' }}
-        />
+        <img src={url} alt={plateNumber} style={{ width: 64, height: 40, objectFit: 'cover', display: 'block' }} />
       </a>
     )
   }
   return <AnprSnapshot />
 }
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100]
+const PERIOD_TABS: { id: Period; label: string }[] = [
+  { id: 'today', label: 'Сегодня' },
+  { id: '7d', label: '7 дней' },
+  { id: '30d', label: '30 дней' },
+]
 
 export function HistoryPage() {
   const [search, setSearch] = useState('')
   const [accessPointFilter, setAccessPointFilter] = useState<number | undefined>(undefined)
+  const [period, setPeriod] = useState<Period>('today')
+  const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
+  const [showApMenu, setShowApMenu] = useState(false)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
 
@@ -58,12 +79,36 @@ export function HistoryPage() {
     limit,
     ...(search.length === 0 || search.length >= 2 ? { plateNumber: search || undefined } : {}),
     ...(accessPointFilter !== undefined ? { accessPointId: accessPointFilter } : {}),
+    dateFrom: getDateFrom(period),
   }
 
   const { data, isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
 
   const records = data?.data ?? []
   const total = data?.total ?? 0
+
+  // Client-side result type filter
+  const filteredRecords = useMemo(() => {
+    if (resultFilter === 'all') return records
+    if (resultFilter === 'allowed') return records.filter(r => r.accessGranted === true)
+    if (resultFilter === 'blocked') return records.filter(r => r.accessGranted === false)
+    if (resultFilter === 'unknown') return records.filter(r => r.plateGuid === null)
+    return records
+  }, [records, resultFilter])
+
+  // Tab counts from current page data
+  const counts = useMemo(() => ({
+    all: records.length,
+    allowed: records.filter(r => r.accessGranted === true).length,
+    blocked: records.filter(r => r.accessGranted === false).length,
+    unknown: records.filter(r => r.plateGuid === null).length,
+  }), [records])
+
+  const selectedAp = accessPointFilter !== undefined
+    ? accessPoints.find(ap => ap.id === accessPointFilter)
+    : undefined
+
+  const hasActiveFilters = !!search || accessPointFilter !== undefined || resultFilter !== 'all'
 
   function handleSearch(value: string) {
     setSearch(value)
@@ -72,6 +117,17 @@ export function HistoryPage() {
 
   function handleAccessPointFilter(value: number | undefined) {
     setAccessPointFilter(value)
+    setShowApMenu(false)
+    setPage(1)
+  }
+
+  function handlePeriod(p: Period) {
+    setPeriod(p)
+    setPage(1)
+  }
+
+  function handleResultFilter(r: ResultFilter) {
+    setResultFilter(r)
     setPage(1)
   }
 
@@ -79,6 +135,20 @@ export function HistoryPage() {
     setLimit(value)
     setPage(1)
   }
+
+  function resetFilters() {
+    setSearch('')
+    setAccessPointFilter(undefined)
+    setResultFilter('all')
+    setPage(1)
+  }
+
+  const resultTabs: { id: ResultFilter; label: string; color?: string }[] = [
+    { id: 'all', label: 'Все' },
+    { id: 'allowed', label: 'Разрешены', color: 'var(--success)' },
+    { id: 'blocked', label: 'Заблокированы', color: 'var(--danger)' },
+    { id: 'unknown', label: 'Не в базе', color: 'var(--warn)' },
+  ]
 
   return (
     <>
@@ -103,37 +173,94 @@ export function HistoryPage() {
       />
 
       <div className="content">
-        <div className="toolbar">
-          <div style={{ position: 'relative', flex: 1, maxWidth: 280 }}>
-            <Icon name="search" size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg-subtle)', pointerEvents: 'none' }} />
-            <input
-              className="input"
-              style={{ paddingLeft: 32 }}
-              placeholder="Поиск по номеру…"
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
-            />
+        {/* Filter bar */}
+        <div className="filter-bar">
+          <div className="filter-bar-row">
+            {/* Search */}
+            <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 340 }}>
+              <Icon name="search" size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg-subtle)', pointerEvents: 'none' }} />
+              <input
+                className="input"
+                style={{ paddingLeft: 32 }}
+                placeholder="Поиск по номеру…"
+                value={search}
+                onChange={e => handleSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Period segmented */}
+            <div className="segmented">
+              {PERIOD_TABS.map(p => (
+                <button
+                  key={p.id}
+                  className={`seg-btn${period === p.id ? ' active' : ''}`}
+                  onClick={() => handlePeriod(p.id)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Access point pill */}
+            <div className="filter-pill-wrap">
+              <button
+                className={`filter-pill${accessPointFilter !== undefined ? ' filter-pill-active' : ''}`}
+                onClick={() => setShowApMenu(v => !v)}
+              >
+                <Icon name="gate" size={13} />
+                <span>{selectedAp ? selectedAp.name : 'Все точки'}</span>
+                <Icon name="chevD" size={12} />
+              </button>
+              {showApMenu && (
+                <>
+                  <div className="filter-menu-backdrop" onClick={() => setShowApMenu(false)} />
+                  <div className="filter-menu">
+                    <button
+                      className={`filter-menu-item${accessPointFilter === undefined ? ' active' : ''}`}
+                      onClick={() => handleAccessPointFilter(undefined)}
+                    >
+                      {accessPointFilter === undefined && <Icon name="check" size={12} />}
+                      {accessPointFilter !== undefined && <span style={{ width: 12 }} />}
+                      Все точки доступа
+                    </button>
+                    {accessPoints.map(ap => (
+                      <button
+                        key={ap.id}
+                        className={`filter-menu-item${accessPointFilter === ap.id ? ' active' : ''}`}
+                        onClick={() => handleAccessPointFilter(ap.id)}
+                      >
+                        {accessPointFilter === ap.id && <Icon name="check" size={12} />}
+                        {accessPointFilter !== ap.id && <span style={{ width: 12 }} />}
+                        {ap.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Reset */}
+            {hasActiveFilters && (
+              <button className="btn btn-ghost btn-sm" onClick={resetFilters}>
+                <Icon name="x" size={12} /> Сбросить
+              </button>
+            )}
           </div>
-          <select
-            className="select"
-            style={{ minWidth: 180 }}
-            value={accessPointFilter ?? ''}
-            onChange={e => handleAccessPointFilter(e.target.value ? Number(e.target.value) : undefined)}
-          >
-            <option value="">Все точки доступа</option>
-            {accessPoints.map(ap => (
-              <option key={ap.id} value={ap.id}>{ap.name}</option>
+
+          {/* Result type tabs */}
+          <div className="filter-tabs">
+            {resultTabs.map(t => (
+              <button
+                key={t.id}
+                className={`filter-tab${resultFilter === t.id ? ' active' : ''}`}
+                onClick={() => handleResultFilter(t.id)}
+              >
+                {t.color && <span className="filter-tab-dot" style={{ background: t.color }} />}
+                <span>{t.label}</span>
+                <span className="filter-tab-count">{counts[t.id]}</span>
+              </button>
             ))}
-          </select>
-          <select
-            className="select"
-            value={limit}
-            onChange={e => handleLimitChange(Number(e.target.value))}
-          >
-            {PAGE_SIZE_OPTIONS.map(n => (
-              <option key={n} value={n}>{n} на странице</option>
-            ))}
-          </select>
+          </div>
         </div>
 
         {error && (
@@ -159,7 +286,7 @@ export function HistoryPage() {
               </thead>
               <tbody>
                 {isLoading && <TableSkeleton rows={6} cols={7} />}
-                {!isLoading && records.map(record => (
+                {!isLoading && filteredRecords.map(record => (
                   <tr key={record.id}>
                     <td>
                       <SnapshotThumb url={record.snapshotUrl || null} plateNumber={record.plateNumber} />
@@ -169,11 +296,11 @@ export function HistoryPage() {
                     </td>
                     <td>
                       {record.plateGuid === null ? (
-                        <span className="tag">Неизвестен</span>
+                        <span className="tag tag-warn">Не в базе</span>
                       ) : record.accessGranted === true ? (
                         <span className="tag tag-success">Разрешён</span>
                       ) : record.accessGranted === false ? (
-                        <span className="tag tag-danger">Запрещён</span>
+                        <span className="tag tag-danger">Заблокирован</span>
                       ) : (
                         <span className="tag tag-accent">В базе</span>
                       )}
@@ -194,17 +321,22 @@ export function HistoryPage() {
                     </td>
                   </tr>
                 ))}
-                {!isLoading && records.length === 0 && (
+                {!isLoading && filteredRecords.length === 0 && (
                   <tr>
                     <td colSpan={7}>
                       <div className="empty" style={{ padding: '32px 0' }}>
                         <Icon name="history" size={20} style={{ color: 'var(--fg-subtle)', marginBottom: 8 }} />
                         <div style={{ fontWeight: 500 }}>
-                          {search ? `Ничего не найдено по «${search}»` : 'История пуста'}
+                          {hasActiveFilters ? 'Ничего не найдено' : 'История пуста'}
                         </div>
                         <div style={{ fontSize: 13, color: 'var(--fg-subtle)', marginTop: 4 }}>
-                          Записи появятся после первых распознаваний
+                          {hasActiveFilters ? 'Попробуйте изменить фильтры или сбросить их' : 'Записи появятся после первых распознаваний'}
                         </div>
+                        {hasActiveFilters && (
+                          <button className="btn btn-sm" style={{ marginTop: 12 }} onClick={resetFilters}>
+                            Сбросить фильтры
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -217,6 +349,7 @@ export function HistoryPage() {
               total={total}
               limit={limit}
               onChange={setPage}
+              onLimitChange={handleLimitChange}
             />
           </div>
         )}

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './styles/index.css'
 import { Sidebar } from '@/widgets/sidebar'
-import { LoginPage, CamerasPage, CameraPage, CameraAddPage, CameraLivePage, PlatesPage, AccessPointsPage, HistoryPage, AnalyticsPage } from '@/pages'
+import { LoginPage, CamerasPage, CameraPage, CameraAddPage, CameraLivePage, PlatesPage, AccessPointsPage, HistoryPage, AnalyticsPage, NotificationsPage } from '@/pages'
 import { ToastProvider, Toaster } from '@/shared/ui'
 import { isAuthenticated } from '@/shared/auth'
 
@@ -60,6 +60,7 @@ function App() {
                 <Route path="/access-points" element={<AccessPointsPage />} />
                 <Route path="/history" element={<HistoryPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="*" element={<Navigate to="/cameras" replace />} />
               </Routes>
             </div>

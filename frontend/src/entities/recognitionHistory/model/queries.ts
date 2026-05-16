@@ -11,6 +11,8 @@ export interface UseRecognitionHistoryParams {
   limit?: number
   plateNumber?: string
   accessPointId?: number
+  dateFrom?: string
+  dateTo?: string
 }
 
 export const useRecognitionHistory = (params: UseRecognitionHistoryParams = {}) => {
@@ -25,6 +27,8 @@ export const useRecognitionHistory = (params: UseRecognitionHistoryParams = {}) 
       offset,
       plateNumber: params.plateNumber,
       accessPointId: params.accessPointId,
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
     }),
     refetchInterval: page === 1 ? 15_000 : false,
   })
