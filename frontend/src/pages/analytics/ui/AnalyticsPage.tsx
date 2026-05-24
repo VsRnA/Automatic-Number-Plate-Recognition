@@ -273,7 +273,7 @@ type Period = (typeof PERIODS)[number]['id']
 export function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>('30d')
   const [exporting, setExporting] = useState(false)
-  const { data, isLoading, isError, dataUpdatedAt } = useDashboard()
+  const { data, isLoading, isError, dataUpdatedAt } = useDashboard(period)
 
   const handleExport = async () => {
     setExporting(true)

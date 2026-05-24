@@ -5,22 +5,15 @@ import { formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
 import { TableSkeleton, Icon, PageHeader, PlateBadge, ConfidenceBar, Pagination } from '@/shared/ui'
 
-type Period = 'today' | '7d' | '30d'
 type ResultFilter = 'all' | 'allowed' | 'blocked' | 'unknown'
 
-function getDateFrom(period: Period): string | undefined {
-  const now = new Date()
-  if (period === 'today') {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    return start.toISOString()
-  }
-  if (period === '7d') {
-    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  }
-  if (period === '30d') {
-    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  }
-  return undefined
+const PAGE_SIZE = 10
+
+function resultFilterParams(filter: ResultFilter): { accessGranted?: boolean; unknown?: boolean } {
+  if (filter === 'allowed') return { accessGranted: true }
+  if (filter === 'blocked') return { accessGranted: false }
+  if (filter === 'unknown') return { unknown: true }
+  return {}
 }
 
 function AnprSnapshot() {
@@ -56,53 +49,28 @@ function SnapshotThumb({ url, plateNumber }: { url: string | null; plateNumber: 
   return <AnprSnapshot />
 }
 
-const PERIOD_TABS: { id: Period; label: string }[] = [
-  { id: 'today', label: 'Сегодня' },
-  { id: '7d', label: '7 дней' },
-  { id: '30d', label: '30 дней' },
-]
-
 export function HistoryPage() {
   const [search, setSearch] = useState('')
   const [accessPointFilter, setAccessPointFilter] = useState<number | undefined>(undefined)
-  const [period, setPeriod] = useState<Period>('today')
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [showApMenu, setShowApMenu] = useState(false)
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(20)
 
   const { data: accessPoints = [] } = useAccessPoints()
   const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
 
   const queryParams = {
     page,
-    limit,
+    limit: PAGE_SIZE,
     ...(search.length === 0 || search.length >= 2 ? { plateNumber: search || undefined } : {}),
     ...(accessPointFilter !== undefined ? { accessPointId: accessPointFilter } : {}),
-    dateFrom: getDateFrom(period),
+    ...resultFilterParams(resultFilter),
   }
 
   const { data, isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
 
   const records = data?.data ?? []
   const total = data?.total ?? 0
-
-  // Client-side result type filter
-  const filteredRecords = useMemo(() => {
-    if (resultFilter === 'all') return records
-    if (resultFilter === 'allowed') return records.filter(r => r.accessGranted === true)
-    if (resultFilter === 'blocked') return records.filter(r => r.accessGranted === false)
-    if (resultFilter === 'unknown') return records.filter(r => r.plateGuid === null)
-    return records
-  }, [records, resultFilter])
-
-  // Tab counts from current page data
-  const counts = useMemo(() => ({
-    all: records.length,
-    allowed: records.filter(r => r.accessGranted === true).length,
-    blocked: records.filter(r => r.accessGranted === false).length,
-    unknown: records.filter(r => r.plateGuid === null).length,
-  }), [records])
 
   const selectedAp = accessPointFilter !== undefined
     ? accessPoints.find(ap => ap.id === accessPointFilter)
@@ -121,18 +89,8 @@ export function HistoryPage() {
     setPage(1)
   }
 
-  function handlePeriod(p: Period) {
-    setPeriod(p)
-    setPage(1)
-  }
-
   function handleResultFilter(r: ResultFilter) {
     setResultFilter(r)
-    setPage(1)
-  }
-
-  function handleLimitChange(value: number) {
-    setLimit(value)
     setPage(1)
   }
 
@@ -161,9 +119,10 @@ export function HistoryPage() {
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-subtle)' }}>
               <span style={{
                 width: 7, height: 7, borderRadius: '50%',
-                background: isRefetching ? 'var(--success)' : 'var(--fg-subtle)',
+                background: 'var(--success)',
                 display: 'inline-block',
-                boxShadow: isRefetching ? '0 0 0 2px var(--success-soft)' : 'none',
+                boxShadow: '0 0 0 2px var(--success-soft)',
+                animation: isRefetching ? 'pulseDot 1.4s infinite' : 'none',
                 transition: 'all 0.3s',
               }} />
               Авто-обновление
@@ -173,10 +132,8 @@ export function HistoryPage() {
       />
 
       <div className="content">
-        {/* Filter bar */}
         <div className="filter-bar">
           <div className="filter-bar-row">
-            {/* Search */}
             <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 340 }}>
               <Icon name="search" size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg-subtle)', pointerEvents: 'none' }} />
               <input
@@ -188,20 +145,6 @@ export function HistoryPage() {
               />
             </div>
 
-            {/* Period segmented */}
-            <div className="segmented">
-              {PERIOD_TABS.map(p => (
-                <button
-                  key={p.id}
-                  className={`seg-btn${period === p.id ? ' active' : ''}`}
-                  onClick={() => handlePeriod(p.id)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Access point pill */}
             <div className="filter-pill-wrap">
               <button
                 className={`filter-pill${accessPointFilter !== undefined ? ' filter-pill-active' : ''}`}
@@ -239,7 +182,6 @@ export function HistoryPage() {
               )}
             </div>
 
-            {/* Reset */}
             {hasActiveFilters && (
               <button className="btn btn-ghost btn-sm" onClick={resetFilters}>
                 <Icon name="x" size={12} /> Сбросить
@@ -247,7 +189,6 @@ export function HistoryPage() {
             )}
           </div>
 
-          {/* Result type tabs */}
           <div className="filter-tabs">
             {resultTabs.map(t => (
               <button
@@ -257,7 +198,6 @@ export function HistoryPage() {
               >
                 {t.color && <span className="filter-tab-dot" style={{ background: t.color }} />}
                 <span>{t.label}</span>
-                <span className="filter-tab-count">{counts[t.id]}</span>
               </button>
             ))}
           </div>
@@ -286,7 +226,7 @@ export function HistoryPage() {
               </thead>
               <tbody>
                 {isLoading && <TableSkeleton rows={6} cols={7} />}
-                {!isLoading && filteredRecords.map(record => (
+                {!isLoading && records.map(record => (
                   <tr key={record.id}>
                     <td>
                       <SnapshotThumb url={record.snapshotUrl || null} plateNumber={record.plateNumber} />
@@ -321,7 +261,7 @@ export function HistoryPage() {
                     </td>
                   </tr>
                 ))}
-                {!isLoading && filteredRecords.length === 0 && (
+                {!isLoading && records.length === 0 && (
                   <tr>
                     <td colSpan={7}>
                       <div className="empty" style={{ padding: '32px 0' }}>
@@ -347,9 +287,8 @@ export function HistoryPage() {
             <Pagination
               page={page}
               total={total}
-              limit={limit}
+              limit={PAGE_SIZE}
               onChange={setPage}
-              onLimitChange={handleLimitChange}
             />
           </div>
         )}

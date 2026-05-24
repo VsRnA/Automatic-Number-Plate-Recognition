@@ -9,7 +9,7 @@ import (
 )
 
 type IAnalyticsRepository interface {
-	GetDashboard() (*model.DashboardResponse, error)
+	GetDashboard(timelineDays int) (*model.DashboardResponse, error)
 }
 
 type AnalyticsRepository struct {
@@ -20,7 +20,15 @@ func NewAnalyticsRepository(db *gorm.DB) IAnalyticsRepository {
 	return &AnalyticsRepository{db: db}
 }
 
-func (r *AnalyticsRepository) GetDashboard() (*model.DashboardResponse, error) {
+func (r *AnalyticsRepository) GetDashboard(timelineDays int) (*model.DashboardResponse, error) {
+	if timelineDays <= 0 {
+		timelineDays = 30
+	}
+	if timelineDays > 365 {
+		timelineDays = 365
+	}
+	interval := fmt.Sprintf("%d days", timelineDays)
+
 	sqlDB, err := r.db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("get sql db: %w", err)
@@ -50,7 +58,7 @@ func (r *AnalyticsRepository) GetDashboard() (*model.DashboardResponse, error) {
 			TO_CHAR(DATE("occurredAt"), 'YYYY-MM-DD') AS day,
 			COUNT(*) AS count
 		FROM "recognitionHistory"
-		WHERE "occurredAt" >= NOW() - INTERVAL '30 days'
+		WHERE "occurredAt" >= NOW() - INTERVAL '` + interval + `'
 		GROUP BY DATE("occurredAt")
 		ORDER BY day ASC
 	`)
@@ -75,6 +83,7 @@ func (r *AnalyticsRepository) GetDashboard() (*model.DashboardResponse, error) {
 			COUNT(*) AS count
 		FROM "recognitionHistory" rh
 		LEFT JOIN cameras c ON c.guid = rh."cameraGuid" AND c."deletedAt" IS NULL
+		WHERE rh."occurredAt" >= NOW() - INTERVAL '` + interval + `'
 		GROUP BY rh."cameraGuid", c.name
 		ORDER BY count DESC
 		LIMIT 10
@@ -100,6 +109,7 @@ func (r *AnalyticsRepository) GetDashboard() (*model.DashboardResponse, error) {
 			MAX("occurredAt") AS last_seen,
 			COUNT(*) FILTER (WHERE "accessGranted" = true) AS granted_count
 		FROM "recognitionHistory"
+		WHERE "occurredAt" >= NOW() - INTERVAL '` + interval + `'
 		GROUP BY "plateNumber"
 		ORDER BY count DESC
 		LIMIT 10
