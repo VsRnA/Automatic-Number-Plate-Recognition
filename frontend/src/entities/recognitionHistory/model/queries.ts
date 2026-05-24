@@ -11,6 +11,8 @@ export interface UseRecognitionHistoryParams {
   limit?: number
   plateNumber?: string
   accessPointId?: number
+  accessGranted?: boolean
+  unknown?: boolean
   dateFrom?: string
   dateTo?: string
 }
@@ -27,6 +29,8 @@ export const useRecognitionHistory = (params: UseRecognitionHistoryParams = {}) 
       offset,
       plateNumber: params.plateNumber,
       accessPointId: params.accessPointId,
+      accessGranted: params.accessGranted,
+      unknown: params.unknown,
       dateFrom: params.dateFrom,
       dateTo: params.dateTo,
     }),

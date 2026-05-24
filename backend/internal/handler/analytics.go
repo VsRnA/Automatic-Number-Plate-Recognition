@@ -22,10 +22,22 @@ func NewAnalyticsHandler(repo repository.IAnalyticsRepository) IAnalyticsHandler
 }
 
 func (h *AnalyticsHandler) GetDashboard(c *gin.Context) {
-	data, err := h.repo.GetDashboard()
+	timelineDays := parseTimelineDays(c.Query("period"))
+	data, err := h.repo.GetDashboard(timelineDays)
 	if err != nil {
 		exception.HttpResponseException(c, exception.InternalError("failed to load analytics"))
 		return
 	}
 	c.JSON(http.StatusOK, data)
+}
+
+func parseTimelineDays(period string) int {
+	switch period {
+	case "7d":
+		return 7
+	case "90d":
+		return 90
+	default:
+		return 30
+	}
 }

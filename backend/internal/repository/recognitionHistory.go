@@ -14,6 +14,7 @@ type RecognitionHistoryFilters struct {
 	AccessPointId *int
 	PlateNumber   *string
 	AccessGranted *bool
+	UnknownOnly   *bool
 	DateFrom      *time.Time
 	DateTo        *time.Time
 	Limit         int
@@ -58,6 +59,9 @@ func (r *RecognitionHistoryRepository) applyFilters(query *gorm.DB, filters *Rec
 	}
 	if filters.AccessGranted != nil {
 		query = query.Where("\"accessGranted\" = ?", *filters.AccessGranted)
+	}
+	if filters.UnknownOnly != nil && *filters.UnknownOnly {
+		query = query.Where("\"plateGuid\" IS NULL")
 	}
 	if filters.DateFrom != nil {
 		query = query.Where("\"occurredAt\" >= ?", *filters.DateFrom)
