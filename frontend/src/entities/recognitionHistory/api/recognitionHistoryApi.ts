@@ -7,6 +7,7 @@ export interface RecognitionHistoryListParams {
   plateNumber?: string
   accessGranted?: boolean
   unknown?: boolean
+  known?: boolean
   dateFrom?: string
   dateTo?: string
   limit?: number
@@ -21,6 +22,7 @@ export const recognitionHistoryApi = {
     if (params.plateNumber) query.set('plateNumber', params.plateNumber)
     if (params.accessGranted !== undefined) query.set('accessGranted', String(params.accessGranted))
     if (params.unknown) query.set('unknown', 'true')
+    if (params.known) query.set('known', 'true')
     if (params.dateFrom) query.set('dateFrom', params.dateFrom)
     if (params.dateTo) query.set('dateTo', params.dateTo)
     if (params.limit !== undefined) query.set('limit', String(params.limit))

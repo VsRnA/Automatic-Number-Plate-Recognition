@@ -3,8 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './styles/index.css'
 import { Sidebar } from '@/widgets/sidebar'
-import { LoginPage, CamerasPage, CameraPage, CameraAddPage, CameraLivePage, PlatesPage, AccessPointsPage, HistoryPage, AnalyticsPage, NotificationsPage } from '@/pages'
-import { NotificationProvider } from '@/entities/notification'
+import { LoginPage, CamerasPage, CameraPage, CameraAddPage, CameraLivePage, PlatesPage, AccessPointsPage, HistoryPage, AnalyticsPage } from '@/pages'
 import { ToastProvider, Toaster } from '@/shared/ui'
 import { isAuthenticated } from '@/shared/auth'
 
@@ -48,27 +47,25 @@ function App() {
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <NotificationProvider>
-            <div className="app">
-              <Sidebar darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />
-              <div className="main">
-                <Routes>
-                  <Route path="/" element={<Navigate to="/cameras" replace />} />
-                  <Route path="/cameras" element={<CamerasPage />} />
-                  <Route path="/cameras/add" element={<CameraAddPage />} />
-                  <Route path="/cameras/:id/live" element={<CameraLivePage />} />
-                  <Route path="/cameras/:id" element={<CameraPage />} />
-                  <Route path="/plates" element={<PlatesPage />} />
-                  <Route path="/access-points" element={<AccessPointsPage />} />
-                  <Route path="/history" element={<HistoryPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="*" element={<Navigate to="/cameras" replace />} />
-                </Routes>
-              </div>
+          <div className="app">
+            <Sidebar darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />
+            <div className="main">
+              <Routes>
+                <Route path="/" element={<Navigate to="/cameras" replace />} />
+                <Route path="/cameras" element={<CamerasPage />} />
+                <Route path="/cameras/add" element={<CameraAddPage />} />
+                <Route path="/cameras/:id/live" element={<CameraLivePage />} />
+                <Route path="/cameras/:id" element={<CameraPage />} />
+                <Route path="/plates" element={<PlatesPage />} />
+                <Route path="/access-points" element={<AccessPointsPage />} />
+                <Route path="/history" element={<HistoryPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/notifications" element={<Navigate to="/history" replace />} />
+                <Route path="*" element={<Navigate to="/cameras" replace />} />
+              </Routes>
             </div>
-            <Toaster />
-          </NotificationProvider>
+          </div>
+          <Toaster />
         </ToastProvider>
       </QueryClientProvider>
     </BrowserRouter>

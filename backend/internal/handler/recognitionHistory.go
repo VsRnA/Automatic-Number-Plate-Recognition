@@ -213,6 +213,11 @@ func (h *RecognitionHistoryHandler) parseFilters(c *gin.Context) *repository.Rec
 		filters.UnknownOnly = &v
 	}
 
+	if knownStr := c.Query("known"); knownStr == "true" {
+		v := true
+		filters.KnownOnly = &v
+	}
+
 	if dateFromStr := c.Query("dateFrom"); dateFromStr != "" {
 		if t, err := time.Parse(time.RFC3339, dateFromStr); err == nil {
 			filters.DateFrom = &t

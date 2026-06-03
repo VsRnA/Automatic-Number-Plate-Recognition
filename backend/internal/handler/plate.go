@@ -108,10 +108,16 @@ func (h *PlateHandler) CreatePlate(c *gin.Context) {
 		return
 	}
 
+	accessType, ok := normalizeAccessType(req.AccessType)
+	if !ok {
+		exception.HttpResponseException(c, exception.RequestValidationError("accessType must be allowed or blocked"))
+		return
+	}
+
 	plate := &model.Plate{
 		Number:     req.Number,
 		Region:     req.Region,
-		AccessType: req.AccessType,
+		AccessType: accessType,
 		ValidUntil: req.ValidUntil,
 		Comment:    req.Comment,
 		IsEnabled:  true,
@@ -191,7 +197,12 @@ func (h *PlateHandler) UpdatePlate(c *gin.Context) {
 		plate.Region = req.Region
 	}
 	if req.AccessType != "" {
-		plate.AccessType = req.AccessType
+		accessType, ok := normalizeAccessType(req.AccessType)
+		if !ok {
+			exception.HttpResponseException(c, exception.RequestValidationError("accessType must be allowed or blocked"))
+			return
+		}
+		plate.AccessType = accessType
 	}
 	if req.ValidUntil != nil {
 		plate.ValidUntil = req.ValidUntil
@@ -330,8 +341,8 @@ func (h *PlateHandler) ImportPlates(c *gin.Context) {
 		if len(row) > 1 {
 			region = strings.TrimSpace(row[1])
 		}
-		accessType := strings.ToLower(strings.TrimSpace(row[2]))
-		if number == "" || accessType == "" {
+		accessType, ok := normalizeAccessType(row[2])
+		if number == "" || !ok {
 			skipped++
 			continue
 		}
@@ -371,7 +382,12 @@ func (h *PlateHandler) ImportPlates(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"created": created, "skipped": skipped})
 }
 
-var validAccessTypes = map[string]bool{"allowed": true, "blocked": true, "vip": true}
+var validAccessTypes = map[string]bool{"allowed": true, "blocked": true}
+
+func normalizeAccessType(accessType string) (string, bool) {
+	t := strings.ToLower(strings.TrimSpace(accessType))
+	return t, validAccessTypes[t]
+}
 
 func (h *PlateHandler) PreviewImportPlates(c *gin.Context) {
 	file, _, err := c.Request.FormFile("file")

@@ -39,6 +39,9 @@ type Config struct {
 	S3Bucket    string `env:"S3_BUCKET"`
 	S3UseSSL    bool   `env:"S3_USE_SSL"`
 	S3Region    string `env:"S3_REGION"`
+
+	ScudURL     string `env:"SCUD_URL"`
+	ScudStubURL string `env:"SCUD_STUB_URL"`
 }
 
 func LoadEnv() (*Config, error) {
@@ -77,6 +80,9 @@ func LoadEnv() (*Config, error) {
 		S3Bucket:    getEnv("S3_BUCKET", "anpr"),
 		S3UseSSL:    getEnvBool("S3_USE_SSL", false),
 		S3Region:    getEnv("S3_REGION", "us-east-1"),
+
+		ScudURL:     getEnv("SCUD_URL", "http://scud-system.local/api/v1/access"),
+		ScudStubURL: getEnv("SCUD_STUB_URL", "http://127.0.0.1:8080/internal/scud-stub"),
 	}
 
 	if err := cfg.ValidateRequired(); err != nil {

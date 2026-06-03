@@ -32,6 +32,8 @@ services:
       - S3_BUCKET=${S3_BUCKET}
       - S3_USE_SSL=${S3_USE_SSL:-false}
       - S3_REGION=${S3_REGION:-us-east-1}
+      - SCUD_URL=${SCUD_URL:-http://scud-system.local/api/v1/access}
+      - SCUD_STUB_URL=${SCUD_STUB_URL:-http://127.0.0.1:8080/internal/scud-stub}
     restart: unless-stopped
 
   postgres:

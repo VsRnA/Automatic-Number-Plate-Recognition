@@ -54,7 +54,7 @@ const DEFAULT_MAPPING: Mapping = {
 
 const CSV_COLS = ['Номер', 'Регион', 'Тип доступа', 'Действителен до', 'Комментарий', 'Группа']
 
-const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешён', blocked: 'Заблокирован', vip: 'VIP' }
+const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешено', blocked: 'Отказано' }
 
 function Stepper({ step }: { step: number }) {
   return (

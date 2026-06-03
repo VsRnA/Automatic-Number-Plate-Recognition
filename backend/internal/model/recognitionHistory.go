@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 )
 
 type RecognitionHistory struct {
@@ -13,8 +14,9 @@ type RecognitionHistory struct {
 	PlateNumber   string     `json:"plateNumber" gorm:"column:plateNumber;size:20;not null;index"`
 	PlateGuid     *uuid.UUID `json:"plateGuid" gorm:"column:plateGuid;type:uuid"`
 	Confidence    float64    `json:"confidence" gorm:"column:confidence"`
-	AccessGranted *bool      `json:"accessGranted" gorm:"column:accessGranted"`
-	SnapshotUrl   string     `json:"snapshotUrl" gorm:"column:snapshotUrl;size:500"`
+	AccessGranted *bool          `json:"accessGranted" gorm:"column:accessGranted"`
+	ScudResult    datatypes.JSON `json:"scudResult" gorm:"column:scudResult;type:jsonb"`
+	SnapshotUrl   string         `json:"snapshotUrl" gorm:"column:snapshotUrl;size:500"`
 	OccurredAt    time.Time  `json:"occurredAt" gorm:"column:occurredAt;not null;index"`
 	CreatedAt     time.Time  `json:"createdAt" gorm:"column:createdAt"`
 }

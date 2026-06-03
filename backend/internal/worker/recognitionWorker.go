@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/integration/scud"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/model"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
 )
@@ -33,6 +35,7 @@ type RecognitionWorker struct {
 	papRepo     repository.IPlateAccessPointRepository
 	cameraRepo  repository.ICameraRepository
 	historyRepo repository.IRecognitionHistoryRepository
+	scudClient  *scud.Client
 }
 
 func NewRecognitionWorker(
@@ -40,12 +43,14 @@ func NewRecognitionWorker(
 	papRepo repository.IPlateAccessPointRepository,
 	cameraRepo repository.ICameraRepository,
 	historyRepo repository.IRecognitionHistoryRepository,
+	scudClient *scud.Client,
 ) *RecognitionWorker {
 	return &RecognitionWorker{
 		plateRepo:   plateRepo,
 		papRepo:     papRepo,
 		cameraRepo:  cameraRepo,
 		historyRepo: historyRepo,
+		scudClient:  scudClient,
 	}
 }
 
@@ -102,10 +107,7 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 				continue
 			}
 			matchedForUpdate, _ := w.plateRepo.Get(&repository.PlateFilters{Number: &plate.PlateNumber})
-			duplicate.PlateNumber = plate.PlateNumber
-			duplicate.Confidence = plate.Confidence
-			duplicate.SnapshotUrl = plate.ScreenshotURL
-			duplicate.AccessGranted = resolveAccessGranted(w.papRepo, matchedForUpdate, accessPointId, occurredAt)
+			w.fillRecord(ctx, duplicate, matchedForUpdate, plate, accessPointId, occurredAt)
 			if err := w.historyRepo.Update(duplicate); err != nil {
 				slog.Error("Failed to update history for plate", "camera_id", cameraGuid, "plate", plate.PlateNumber, "error", err)
 			} else {
@@ -118,49 +120,77 @@ func (w *RecognitionWorker) Handle(ctx context.Context, data []byte) error {
 			continue
 		}
 
-		var plateGuid *uuid.UUID
 		matched, err := w.plateRepo.Get(&repository.PlateFilters{Number: &plate.PlateNumber})
 		if err != nil {
 			slog.Error("Plate lookup error", "camera_id", cameraGuid, "plate", plate.PlateNumber, "error", err)
-		} else if matched != nil {
-			g := matched.Guid
-			plateGuid = &g
 		}
-
-		accessGranted := resolveAccessGranted(w.papRepo, matched, accessPointId, occurredAt)
 
 		record := &model.RecognitionHistory{
 			CameraGuid:    cameraGuid,
 			AccessPointId: accessPointId,
-			PlateNumber:   plate.PlateNumber,
-			PlateGuid:     plateGuid,
-			Confidence:    plate.Confidence,
-			AccessGranted: accessGranted,
-			SnapshotUrl:   plate.ScreenshotURL,
 			OccurredAt:    occurredAt,
 		}
+		w.fillRecord(ctx, record, matched, plate, accessPointId, occurredAt)
 
 		if err := w.historyRepo.Create(record); err != nil {
 			slog.Error("Failed to save history for plate", "camera_id", cameraGuid, "plate", plate.PlateNumber, "error", err)
 			continue
 		}
 
+		granted := record.AccessGranted != nil && *record.AccessGranted
 		slog.Info("Plate saved",
 			"camera_id", cameraGuid,
 			"plate", plate.PlateNumber,
-			"known", plateGuid != nil,
-			"access_granted", accessGranted != nil && *accessGranted,
+			"known", record.PlateGuid != nil,
+			"access_granted", granted,
 		)
 	}
 
 	return nil
 }
 
+func (w *RecognitionWorker) fillRecord(
+	ctx context.Context,
+	record *model.RecognitionHistory,
+	matched *model.Plate,
+	plate platePayload,
+	accessPointId *int,
+	occurredAt time.Time,
+) {
+	record.PlateNumber = plate.PlateNumber
+	record.Confidence = plate.Confidence
+	record.SnapshotUrl = plate.ScreenshotURL
+
+	var plateGuid *uuid.UUID
+	if matched != nil {
+		g := matched.Guid
+		plateGuid = &g
+	}
+	record.PlateGuid = plateGuid
+	record.AccessGranted = resolveAccessGranted(w.papRepo, matched, accessPointId, occurredAt)
+
+	if plateGuid != nil && w.scudClient != nil {
+		granted := record.AccessGranted != nil && *record.AccessGranted
+		result := w.scudClient.NotifyAccess(ctx, plate.PlateNumber, accessPointId, granted)
+		record.ScudResult = encodeScudResult(result)
+	} else {
+		record.ScudResult = nil
+	}
+}
+
+func encodeScudResult(result scud.IntegrationResult) datatypes.JSON {
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil
+	}
+	return datatypes.JSON(data)
+}
+
 func resolveAccessGranted(papRepo repository.IPlateAccessPointRepository, plate *model.Plate, accessPointId *int, at time.Time) *bool {
 	granted := false
 	if plate != nil && plate.IsEnabled {
 		if plate.ValidUntil == nil || at.Before(*plate.ValidUntil) {
-			if plate.AccessType == "allowed" || plate.AccessType == "vip" {
+			if plate.AccessType == "allowed" {
 				granted = hasAccessToPoint(papRepo, plate.Guid, accessPointId)
 			}
 		}

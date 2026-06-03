@@ -13,6 +13,7 @@ export interface UseRecognitionHistoryParams {
   accessPointId?: number
   accessGranted?: boolean
   unknown?: boolean
+  known?: boolean
   dateFrom?: string
   dateTo?: string
 }
@@ -31,6 +32,7 @@ export const useRecognitionHistory = (params: UseRecognitionHistoryParams = {}) 
       accessPointId: params.accessPointId,
       accessGranted: params.accessGranted,
       unknown: params.unknown,
+      known: params.known,
       dateFrom: params.dateFrom,
       dateTo: params.dateTo,
     }),

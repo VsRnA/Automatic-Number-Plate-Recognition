@@ -1,18 +1,23 @@
 import { useState, useMemo } from 'react'
-import { useRecognitionHistory } from '@/entities/recognitionHistory'
+import { useRecognitionHistory, type RecognitionHistory, type ScudIntegrationResult } from '@/entities/recognitionHistory'
 import { useAccessPoints } from '@/entities/accessPoint'
 import { formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
 import { TableSkeleton, Icon, PageHeader, PlateBadge, ConfidenceBar, Pagination } from '@/shared/ui'
 
-type ResultFilter = 'all' | 'allowed' | 'blocked' | 'unknown'
+type HistorySection = 'access' | 'anpr'
+type AccessFilter = 'all' | 'allowed' | 'blocked'
 
 const PAGE_SIZE = 10
 
-function resultFilterParams(filter: ResultFilter): { accessGranted?: boolean; unknown?: boolean } {
+function sectionParams(section: HistorySection): { known?: boolean; unknown?: boolean } {
+  if (section === 'access') return { known: true }
+  return { unknown: true }
+}
+
+function accessFilterParams(filter: AccessFilter): { accessGranted?: boolean } {
   if (filter === 'allowed') return { accessGranted: true }
   if (filter === 'blocked') return { accessGranted: false }
-  if (filter === 'unknown') return { unknown: true }
   return {}
 }
 
@@ -49,10 +54,148 @@ function SnapshotThumb({ url, plateNumber }: { url: string | null; plateNumber: 
   return <AnprSnapshot />
 }
 
+function AccessResultTag({ record }: { record: RecognitionHistory }) {
+  if (record.accessGranted === true) {
+    return <span className="tag tag-success">Разрешено</span>
+  }
+  return <span className="tag tag-danger">Отказано</span>
+}
+
+function ScudCell({ scudResult }: { scudResult?: ScudIntegrationResult | null }) {
+  if (!scudResult?.request?.url) {
+    return <span style={{ color: 'var(--fg-subtle)' }}>—</span>
+  }
+  const { method, url, body: reqBody } = scudResult.request
+  const { statusCode, body: respBody, durationMs, error } = scudResult.response ?? {}
+  const title = [
+    `→ ${method} ${url}`,
+    reqBody ? `Запрос:\n${reqBody}` : '',
+    statusCode ? `Ответ: ${statusCode} (${durationMs}ms)` : '',
+    error ? `Ошибка: ${error}` : '',
+    respBody ? respBody : '',
+  ].filter(Boolean).join('\n\n')
+
+  return (
+    <div title={title} style={{ cursor: 'help', maxWidth: 220 }}>
+      <div style={{ fontSize: 11, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {method} {url}
+      </div>
+      {reqBody && (
+        <div style={{ fontSize: 10.5, color: 'var(--fg-subtle)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {reqBody}
+        </div>
+      )}
+      {statusCode !== undefined && statusCode > 0 && (
+        <span className={`tag ${statusCode >= 200 && statusCode < 300 ? 'tag-success' : 'tag-danger'}`} style={{ marginTop: 4 }}>
+          {statusCode}
+        </span>
+      )}
+      {error && <span className="tag tag-danger" style={{ marginTop: 4 }}>ошибка</span>}
+    </div>
+  )
+}
+
+function HistoryTable({
+  records,
+  isLoading,
+  colSpan,
+  section,
+  accessPointMap,
+  hasActiveFilters,
+  onResetFilters,
+}: {
+  records: RecognitionHistory[]
+  isLoading: boolean
+  colSpan: number
+  section: HistorySection
+  accessPointMap: Map<number, { name: string }>
+  hasActiveFilters: boolean
+  onResetFilters: () => void
+}) {
+  return (
+    <table className="tbl">
+      <thead>
+        <tr>
+          <th style={{ width: 80 }}>Фото</th>
+          <th>Номер</th>
+          {section === 'access' && <th>Результат</th>}
+          {section === 'access' && <th style={{ minWidth: 220 }}>Запрос в СКУД</th>}
+          <th>Уверенность</th>
+          <th>Точка доступа</th>
+          <th>Камера</th>
+          <th>Время</th>
+        </tr>
+      </thead>
+      <tbody>
+        {isLoading && <TableSkeleton rows={6} cols={colSpan} />}
+        {!isLoading && records.map(record => (
+          <tr key={record.id}>
+            <td>
+              <SnapshotThumb url={record.snapshotUrl || null} plateNumber={record.plateNumber} />
+            </td>
+            <td>
+              <PlateBadge number={record.plateNumber} />
+            </td>
+            {section === 'access' && (
+              <td>
+                <AccessResultTag record={record} />
+              </td>
+            )}
+            {section === 'access' && (
+              <td>
+                <ScudCell scudResult={record.scudResult} />
+              </td>
+            )}
+            <td style={{ minWidth: 100 }}>
+              <ConfidenceBar value={record.confidence} />
+            </td>
+            <td style={{ fontSize: 12.5, color: 'var(--fg-muted)' }}>
+              {record.accessPointId !== null
+                ? accessPointMap.get(record.accessPointId)?.name ?? `#${record.accessPointId}`
+                : <span style={{ color: 'var(--fg-subtle)' }}>—</span>}
+            </td>
+            <td style={{ fontSize: 12, color: 'var(--fg-subtle)', fontFamily: 'var(--font-mono)' }}>
+              {record.cameraGuid.slice(0, 8)}…
+            </td>
+            <td style={{ fontSize: 12, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+              {formatDateTime(record.occurredAt)}
+            </td>
+          </tr>
+        ))}
+        {!isLoading && records.length === 0 && (
+          <tr>
+            <td colSpan={colSpan}>
+              <div className="empty" style={{ padding: '32px 0' }}>
+                <Icon name="history" size={20} style={{ color: 'var(--fg-subtle)', marginBottom: 8 }} />
+                <div style={{ fontWeight: 500 }}>
+                  {hasActiveFilters ? 'Ничего не найдено' : 'История пуста'}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--fg-subtle)', marginTop: 4 }}>
+                  {hasActiveFilters
+                    ? 'Попробуйте изменить фильтры или сбросить их'
+                    : section === 'access'
+                      ? 'Записи появятся после распознавания номеров из базы'
+                      : 'Записи появятся после распознавания неизвестных номеров'}
+                </div>
+                {hasActiveFilters && (
+                  <button className="btn btn-sm" style={{ marginTop: 12 }} onClick={onResetFilters}>
+                    Сбросить фильтры
+                  </button>
+                )}
+              </div>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  )
+}
+
 export function HistoryPage() {
   const [search, setSearch] = useState('')
   const [accessPointFilter, setAccessPointFilter] = useState<number | undefined>(undefined)
-  const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
+  const [section, setSection] = useState<HistorySection>('access')
+  const [accessFilter, setAccessFilter] = useState<AccessFilter>('all')
   const [showApMenu, setShowApMenu] = useState(false)
   const [page, setPage] = useState(1)
 
@@ -64,19 +207,22 @@ export function HistoryPage() {
     limit: PAGE_SIZE,
     ...(search.length === 0 || search.length >= 2 ? { plateNumber: search || undefined } : {}),
     ...(accessPointFilter !== undefined ? { accessPointId: accessPointFilter } : {}),
-    ...resultFilterParams(resultFilter),
+    ...sectionParams(section),
+    ...(section === 'access' ? accessFilterParams(accessFilter) : {}),
   }
 
   const { data, isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
 
   const records = data?.data ?? []
   const total = data?.total ?? 0
+  const colSpan = section === 'access' ? 7 : 5
 
   const selectedAp = accessPointFilter !== undefined
     ? accessPoints.find(ap => ap.id === accessPointFilter)
     : undefined
 
-  const hasActiveFilters = !!search || accessPointFilter !== undefined || resultFilter !== 'all'
+  const hasActiveFilters = !!search || accessPointFilter !== undefined ||
+    (section === 'access' && accessFilter !== 'all')
 
   function handleSearch(value: string) {
     setSearch(value)
@@ -89,23 +235,33 @@ export function HistoryPage() {
     setPage(1)
   }
 
-  function handleResultFilter(r: ResultFilter) {
-    setResultFilter(r)
+  function handleSection(next: HistorySection) {
+    setSection(next)
+    setAccessFilter('all')
+    setPage(1)
+  }
+
+  function handleAccessFilter(f: AccessFilter) {
+    setAccessFilter(f)
     setPage(1)
   }
 
   function resetFilters() {
     setSearch('')
     setAccessPointFilter(undefined)
-    setResultFilter('all')
+    setAccessFilter('all')
     setPage(1)
   }
 
-  const resultTabs: { id: ResultFilter; label: string; color?: string }[] = [
+  const sectionTabs: { id: HistorySection; label: string }[] = [
+    { id: 'access', label: 'Доступ (в базе)' },
+    { id: 'anpr', label: 'Распознано ANPR' },
+  ]
+
+  const accessTabs: { id: AccessFilter; label: string; color?: string }[] = [
     { id: 'all', label: 'Все' },
-    { id: 'allowed', label: 'Разрешены', color: 'var(--success)' },
-    { id: 'blocked', label: 'Заблокированы', color: 'var(--danger)' },
-    { id: 'unknown', label: 'Не в базе', color: 'var(--warn)' },
+    { id: 'allowed', label: 'Разрешено', color: 'var(--success)' },
+    { id: 'blocked', label: 'Отказано', color: 'var(--danger)' },
   ]
 
   return (
@@ -190,17 +346,31 @@ export function HistoryPage() {
           </div>
 
           <div className="filter-tabs">
-            {resultTabs.map(t => (
+            {sectionTabs.map(t => (
               <button
                 key={t.id}
-                className={`filter-tab${resultFilter === t.id ? ' active' : ''}`}
-                onClick={() => handleResultFilter(t.id)}
+                className={`filter-tab${section === t.id ? ' active' : ''}`}
+                onClick={() => handleSection(t.id)}
               >
-                {t.color && <span className="filter-tab-dot" style={{ background: t.color }} />}
                 <span>{t.label}</span>
               </button>
             ))}
           </div>
+
+          {section === 'access' && (
+            <div className="filter-tabs" style={{ marginTop: 4 }}>
+              {accessTabs.map(t => (
+                <button
+                  key={t.id}
+                  className={`filter-tab${accessFilter === t.id ? ' active' : ''}`}
+                  onClick={() => handleAccessFilter(t.id)}
+                >
+                  {t.color && <span className="filter-tab-dot" style={{ background: t.color }} />}
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {error && (
@@ -212,77 +382,15 @@ export function HistoryPage() {
 
         {!error && (
           <div className="card">
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th style={{ width: 80 }}>Фото</th>
-                  <th>Номер</th>
-                  <th>Результат</th>
-                  <th>Уверенность</th>
-                  <th>Точка доступа</th>
-                  <th>Камера</th>
-                  <th>Время</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading && <TableSkeleton rows={6} cols={7} />}
-                {!isLoading && records.map(record => (
-                  <tr key={record.id}>
-                    <td>
-                      <SnapshotThumb url={record.snapshotUrl || null} plateNumber={record.plateNumber} />
-                    </td>
-                    <td>
-                      <PlateBadge number={record.plateNumber} />
-                    </td>
-                    <td>
-                      {record.plateGuid === null ? (
-                        <span className="tag tag-warn">Не в базе</span>
-                      ) : record.accessGranted === true ? (
-                        <span className="tag tag-success">Разрешён</span>
-                      ) : record.accessGranted === false ? (
-                        <span className="tag tag-danger">Заблокирован</span>
-                      ) : (
-                        <span className="tag tag-accent">В базе</span>
-                      )}
-                    </td>
-                    <td style={{ minWidth: 100 }}>
-                      <ConfidenceBar value={record.confidence} />
-                    </td>
-                    <td style={{ fontSize: 12.5, color: 'var(--fg-muted)' }}>
-                      {record.accessPointId !== null
-                        ? accessPointMap.get(record.accessPointId)?.name ?? `#${record.accessPointId}`
-                        : <span style={{ color: 'var(--fg-subtle)' }}>—</span>}
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--fg-subtle)', fontFamily: 'var(--font-mono)' }}>
-                      {record.cameraGuid.slice(0, 8)}…
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                      {formatDateTime(record.occurredAt)}
-                    </td>
-                  </tr>
-                ))}
-                {!isLoading && records.length === 0 && (
-                  <tr>
-                    <td colSpan={7}>
-                      <div className="empty" style={{ padding: '32px 0' }}>
-                        <Icon name="history" size={20} style={{ color: 'var(--fg-subtle)', marginBottom: 8 }} />
-                        <div style={{ fontWeight: 500 }}>
-                          {hasActiveFilters ? 'Ничего не найдено' : 'История пуста'}
-                        </div>
-                        <div style={{ fontSize: 13, color: 'var(--fg-subtle)', marginTop: 4 }}>
-                          {hasActiveFilters ? 'Попробуйте изменить фильтры или сбросить их' : 'Записи появятся после первых распознаваний'}
-                        </div>
-                        {hasActiveFilters && (
-                          <button className="btn btn-sm" style={{ marginTop: 12 }} onClick={resetFilters}>
-                            Сбросить фильтры
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <HistoryTable
+              records={records}
+              isLoading={isLoading}
+              colSpan={colSpan}
+              section={section}
+              accessPointMap={accessPointMap}
+              hasActiveFilters={hasActiveFilters}
+              onResetFilters={resetFilters}
+            />
 
             <Pagination
               page={page}

@@ -8,10 +8,10 @@ import { TableSkeleton, ConfirmDialog, Icon, PageHeader, PlateBadge, Toggle, Csv
 
 const EMPTY_FORM: CreatePlateDto = { number: '', region: '', accessType: 'allowed', comment: '', isEnabled: true, accessPointIds: [] }
 
-const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешён', blocked: 'Заблокирован', vip: 'VIP' }
-const ACCESS_TAG: Record<string, string> = { allowed: 'tag tag-success', blocked: 'tag tag-danger', vip: 'tag tag-accent' }
+const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешено', blocked: 'Отказано' }
+const ACCESS_TAG: Record<string, string> = { allowed: 'tag tag-success', blocked: 'tag tag-danger' }
 
-type FilterType = 'all' | 'allowed' | 'blocked' | 'vip'
+type FilterType = 'all' | 'allowed' | 'blocked'
 
 export function PlatesPage() {
   const [search, setSearch] = useState('')
@@ -125,9 +125,8 @@ export function PlatesPage() {
 
   const chips: Array<{ id: FilterType; label: string; count: number }> = [
     { id: 'all', label: 'Все', count: plates.length },
-    { id: 'allowed', label: 'Разрешены', count: plates.filter(p => p.accessType === 'allowed').length },
-    { id: 'blocked', label: 'Заблокированы', count: plates.filter(p => p.accessType === 'blocked').length },
-    { id: 'vip', label: 'VIP', count: plates.filter(p => p.accessType === 'vip').length },
+    { id: 'allowed', label: 'Разрешено', count: plates.filter(p => p.accessType === 'allowed').length },
+    { id: 'blocked', label: 'Отказано', count: plates.filter(p => p.accessType === 'blocked').length },
   ]
 
   return (
@@ -191,9 +190,8 @@ export function PlatesPage() {
                     value={form.accessType}
                     onChange={e => setForm(p => ({ ...p, accessType: e.target.value }))}
                   >
-                    <option value="allowed">Разрешён</option>
-                    <option value="blocked">Заблокирован</option>
-                    <option value="vip">VIP</option>
+                    <option value="allowed">Разрешено</option>
+                    <option value="blocked">Отказано</option>
                   </select>
                 </div>
                 <div className="field">
@@ -292,9 +290,8 @@ export function PlatesPage() {
                     value={editForm.accessType ?? 'allowed'}
                     onChange={e => setEditForm(p => ({ ...p, accessType: e.target.value }))}
                   >
-                    <option value="allowed">Разрешён</option>
-                    <option value="blocked">Заблокирован</option>
-                    <option value="vip">VIP</option>
+                    <option value="allowed">Разрешено</option>
+                    <option value="blocked">Отказано</option>
                   </select>
                 </div>
                 <div className="field">

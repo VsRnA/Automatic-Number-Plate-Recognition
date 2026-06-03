@@ -15,6 +15,7 @@ import (
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/infrastructure/database"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/config"
+	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/integration/scud"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/handler"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/model"
 	"github.com/VsRnA/Automatic-Number-Plate-Recognition/internal/repository"
@@ -81,11 +82,13 @@ func (a *App) Run() error {
 	}()
 
 	workerCtx, workerCancel := context.WithCancel(context.Background())
+	scudClient := scud.NewClient(cfg.ScudURL, cfg.ScudStubURL)
 	recognitionWorker := worker.NewRecognitionWorker(
 		repositories.Plate,
 		repositories.PlateAccessPoint,
 		repositories.Camera,
 		repositories.Recognition,
+		scudClient,
 	)
 	consumer := infrastructure.NewRedisConsumer(
 		redisClient,
