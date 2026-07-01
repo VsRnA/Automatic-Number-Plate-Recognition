@@ -3,12 +3,13 @@ package model
 import "time"
 
 type AccessPoint struct {
-	ID          int       `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
-	Name        string    `json:"name" gorm:"column:name;size:100;not null;uniqueIndex"`
-	Description string    `json:"description" gorm:"column:description;size:500"`
-	Direction   string    `json:"direction" gorm:"column:direction;size:20;default:both"`
-	IsEnabled   bool      `json:"isEnabled" gorm:"column:isEnabled;default:true"`
-	CreatedAt   time.Time `json:"createdAt" gorm:"column:createdAt"`
+	ID             int       `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	Name           string    `json:"name" gorm:"column:name;size:100;not null;uniqueIndex"`
+	Description    string    `json:"description" gorm:"column:description;size:500"`
+	Direction      string    `json:"direction" gorm:"column:direction;size:20;default:both"`
+	HttpRequestUrl *string   `json:"httpRequestUrl" gorm:"column:httpRequestUrl;size:500"`
+	IsEnabled      bool      `json:"isEnabled" gorm:"column:isEnabled;default:true"`
+	CreatedAt      time.Time `json:"createdAt" gorm:"column:createdAt"`
 }
 
 func (AccessPoint) TableName() string {
@@ -16,15 +17,17 @@ func (AccessPoint) TableName() string {
 }
 
 type CreateAccessPointRequest struct {
-	Name        string `json:"name" validate:"required,min=1,max=100"`
-	Description string `json:"description" validate:"max=500"`
-	Direction   string `json:"direction" validate:"omitempty,oneof=entry exit both"`
-	IsEnabled   *bool  `json:"isEnabled"`
+	Name           string  `json:"name" validate:"required,min=1,max=100"`
+	Description    string  `json:"description" validate:"max=500"`
+	Direction      string  `json:"direction" validate:"omitempty,oneof=entry exit both"`
+	HttpRequestUrl *string `json:"httpRequestUrl" validate:"omitempty,url,max=500"`
+	IsEnabled      *bool   `json:"isEnabled"`
 }
 
 type UpdateAccessPointRequest struct {
-	Name        string `json:"name" validate:"omitempty,min=1,max=100"`
-	Description string `json:"description" validate:"max=500"`
-	Direction   string `json:"direction" validate:"omitempty,oneof=entry exit both"`
-	IsEnabled   *bool  `json:"isEnabled"`
+	Name           string  `json:"name" validate:"omitempty,min=1,max=100"`
+	Description    string  `json:"description" validate:"max=500"`
+	Direction      string  `json:"direction" validate:"omitempty,oneof=entry exit both"`
+	HttpRequestUrl *string `json:"httpRequestUrl" validate:"omitempty,url,max=500"`
+	IsEnabled      *bool   `json:"isEnabled"`
 }

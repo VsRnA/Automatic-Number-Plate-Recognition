@@ -1,21 +1,24 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Plate, CreatePlateDto, UpdatePlateDto } from '@/entities/plate'
 import { usePlates, useDeletePlate, useCreatePlate, useUpdatePlate, useImportPlates, usePreviewImport } from '@/entities/plate'
 import { useAccessPoints } from '@/entities/accessPoint'
 import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
-import { TableSkeleton, ConfirmDialog, Icon, PageHeader, PlateBadge, Toggle, CsvImportModal } from '@/shared/ui'
+import { TableSkeleton, ConfirmDialog, Icon, PageHeader, PlateBadge, Toggle, CsvImportModal, Pagination } from '@/shared/ui'
 
-const EMPTY_FORM: CreatePlateDto = { number: '', region: '', accessType: 'allowed', comment: '', isEnabled: true, accessPointIds: [] }
-
-const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешено', blocked: 'Отказано' }
+const ACCESS_LABELS: Record<string, string> = { allowed: 'Разрешён', blocked: 'Заблокирован' }
 const ACCESS_TAG: Record<string, string> = { allowed: 'tag tag-success', blocked: 'tag tag-danger' }
 
 type FilterType = 'all' | 'allowed' | 'blocked'
 
+const PAGE_SIZE = 10
+const EMPTY_FORM: CreatePlateDto = { number: '', region: '', accessType: 'allowed', comment: '', isEnabled: true, accessPointIds: [] }
+
 export function PlatesPage() {
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [filter, setFilter] = useState<FilterType>('all')
+  const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState<CreatePlateDto>(EMPTY_FORM)
@@ -26,7 +29,20 @@ export function PlatesPage() {
   const [importResult, setImportResult] = useState<{ created: number; skipped: number } | null>(null)
   const { showToast } = useToast()
 
-  const { data: plates = [], isLoading, error, refetch } = usePlates()
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(id)
+  }, [search])
+
+  const { data, isLoading, error, refetch } = usePlates({
+    page,
+    limit: PAGE_SIZE,
+    number: debouncedSearch || undefined,
+    accessType: filter === 'all' ? undefined : filter,
+  })
+  const plates = data?.data ?? []
+  const total = data?.total ?? 0
+
   const { data: accessPoints = [] } = useAccessPoints()
   const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
   const deletePlate = useDeletePlate()
@@ -100,6 +116,11 @@ export function PlatesPage() {
     })
   }
 
+  const closeAddModal = () => {
+    setShowAdd(false)
+    setForm(EMPTY_FORM)
+  }
+
   const toggleSelect = (guid: string) => {
     setSelected(prev => {
       const next = new Set(prev)
@@ -110,23 +131,26 @@ export function PlatesPage() {
   }
 
   const toggleAll = () => {
-    if (selected.size === filtered.length) setSelected(new Set())
-    else setSelected(new Set(filtered.map(p => p.guid)))
+    if (selected.size === plates.length) setSelected(new Set())
+    else setSelected(new Set(plates.map(p => p.guid)))
   }
 
-  const filtered = plates.filter(p => {
-    const matchesSearch = p.number.toLowerCase().includes(search.toLowerCase()) ||
-      p.region.toLowerCase().includes(search.toLowerCase())
-    const matchesFilter = filter === 'all' || p.accessType === filter
-    return matchesSearch && matchesFilter
-  })
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const handleFilterChange = (next: FilterType) => {
+    setFilter(next)
+    setPage(1)
+  }
 
   const deletingPlate = plates.find(p => p.guid === deletingId)
 
-  const chips: Array<{ id: FilterType; label: string; count: number }> = [
-    { id: 'all', label: 'Все', count: plates.length },
-    { id: 'allowed', label: 'Разрешено', count: plates.filter(p => p.accessType === 'allowed').length },
-    { id: 'blocked', label: 'Отказано', count: plates.filter(p => p.accessType === 'blocked').length },
+  const chips: Array<{ id: FilterType; label: string }> = [
+    { id: 'all', label: 'Все' },
+    { id: 'allowed', label: 'Разрешён' },
+    { id: 'blocked', label: 'Заблокирован' },
   ]
 
   return (
@@ -152,13 +176,12 @@ export function PlatesPage() {
         />
       )}
 
-      {/* Add modal */}
       {showAdd && (
-        <div className="modal-backdrop" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>
+        <div className="modal-backdrop" onClick={closeAddModal}>
           <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <h2>Новый номерной знак</h2>
-              <button className="btn btn-icon btn-ghost" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}><Icon name="x" /></button>
+              <button className="btn btn-icon btn-ghost" onClick={closeAddModal}><Icon name="x" /></button>
             </div>
             <div className="modal-body">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -190,8 +213,8 @@ export function PlatesPage() {
                     value={form.accessType}
                     onChange={e => setForm(p => ({ ...p, accessType: e.target.value }))}
                   >
-                    <option value="allowed">Разрешено</option>
-                    <option value="blocked">Отказано</option>
+                    <option value="allowed">Разрешён</option>
+                    <option value="blocked">Заблокирован</option>
                   </select>
                 </div>
                 <div className="field">
@@ -244,7 +267,7 @@ export function PlatesPage() {
             <div className="modal-foot">
               <span />
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}>Отмена</button>
+                <button className="btn" onClick={closeAddModal}>Отмена</button>
                 <button className="btn btn-accent" onClick={handleCreate} disabled={createPlate.isPending || !form.number.trim()}>
                   {createPlate.isPending ? 'Создание…' : 'Создать'}
                 </button>
@@ -254,7 +277,6 @@ export function PlatesPage() {
         </div>
       )}
 
-      {/* Edit modal */}
       {editingPlate && (
         <div className="modal-backdrop" onClick={() => setEditingPlate(null)}>
           <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
@@ -290,8 +312,8 @@ export function PlatesPage() {
                     value={editForm.accessType ?? 'allowed'}
                     onChange={e => setEditForm(p => ({ ...p, accessType: e.target.value }))}
                   >
-                    <option value="allowed">Разрешено</option>
-                    <option value="blocked">Отказано</option>
+                    <option value="allowed">Разрешён</option>
+                    <option value="blocked">Заблокирован</option>
                   </select>
                 </div>
                 <div className="field">
@@ -363,21 +385,10 @@ export function PlatesPage() {
       <PageHeader
         title="Номерные знаки"
         crumbs="Основное"
-        count={plates.length}
-        actions={
-          <>
-            <button className="btn" onClick={() => setShowImport(true)}>
-              <Icon name="upload" size={14} /> Импорт
-            </button>
-            <button className="btn btn-accent" onClick={() => setShowAdd(true)}>
-              <Icon name="plus" /> Добавить номер
-            </button>
-          </>
-        }
+        count={total}
       />
 
       <div className="content">
-        {/* Bulk selection bar */}
         {selected.size > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 13, fontWeight: 500 }}>Выбрано: {selected.size}</span>
@@ -396,22 +407,26 @@ export function PlatesPage() {
               <button
                 key={c.id}
                 className={`chip${filter === c.id ? ' active' : ''}`}
-                onClick={() => setFilter(c.id)}
+                onClick={() => handleFilterChange(c.id)}
               >
                 {c.label}
-                <span style={{ marginLeft: 5, fontSize: 11, opacity: 0.7 }}>{c.count}</span>
               </button>
             ))}
           </div>
-          <div style={{ position: 'relative', flex: 1, maxWidth: 280 }}>
-            <Icon name="search" size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg-subtle)', pointerEvents: 'none' }} />
-            <input
-              className="input"
-              style={{ paddingLeft: 32 }}
-              placeholder="Поиск по номеру…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 280 }}>
+              <Icon name="search" size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fg-subtle)', pointerEvents: 'none' }} />
+              <input
+                className="input"
+                style={{ paddingLeft: 32 }}
+                placeholder="Поиск по номеру…"
+                value={search}
+                onChange={e => handleSearchChange(e.target.value)}
+              />
+            </div>
+            <button className="btn" onClick={() => setShowImport(true)}>
+              <Icon name="upload" size={14} /> Импорт
+            </button>
           </div>
         </div>
 
@@ -430,7 +445,7 @@ export function PlatesPage() {
                   <th style={{ width: 40 }}>
                     <input
                       type="checkbox"
-                      checked={filtered.length > 0 && selected.size === filtered.length}
+                      checked={plates.length > 0 && selected.size === plates.length}
                       onChange={toggleAll}
                       style={{ cursor: 'pointer' }}
                     />
@@ -445,7 +460,7 @@ export function PlatesPage() {
               </thead>
               <tbody>
                 {isLoading && <TableSkeleton rows={5} cols={7} />}
-                {!isLoading && filtered.map(plate => (
+                {!isLoading && plates.map(plate => (
                   <PlateRow
                     key={plate.guid}
                     plate={plate}
@@ -456,23 +471,53 @@ export function PlatesPage() {
                     onDelete={() => setDeletingId(plate.guid)}
                   />
                 ))}
-                {!isLoading && filtered.length === 0 && (
+                {!isLoading && plates.length === 0 && (
                   <tr>
                     <td colSpan={7}>
                       <div className="empty" style={{ padding: '32px 0' }}>
                         <Icon name="plate" size={20} style={{ color: 'var(--fg-subtle)', marginBottom: 8 }} />
                         <div style={{ fontWeight: 500 }}>{search ? `Ничего не найдено по «${search}»` : 'Номеров нет'}</div>
-                        {!search && (
-                          <button className="btn btn-accent btn-sm" style={{ marginTop: 12 }} onClick={() => setShowAdd(true)}>
-                            <Icon name="plus" size={13} /> Добавить первый номер
-                          </button>
-                        )}
                       </div>
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '10px 14px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowAdd(true)}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          padding: '14px 16px',
+                          border: '1px dashed var(--line-strong)',
+                          borderRadius: 'var(--radius)',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          color: 'var(--fg-muted)',
+                          fontSize: 13,
+                          fontWeight: 500,
+                        }}
+                      >
+                        <Icon name="plus" size={20} />
+                        <span>Добавить номер</span>
+                      </button>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+
+            <Pagination
+              page={page}
+              total={total}
+              limit={PAGE_SIZE}
+              onChange={setPage}
+            />
           </div>
         )}
       </div>

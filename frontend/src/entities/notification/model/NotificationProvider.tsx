@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo, type ReactNode } from 'react'
 import { useRecognitionHistory } from '@/entities/recognitionHistory'
-import { useCameras } from '@/entities/camera'
 import type { AppNotification } from './types'
 import { NotificationContext } from './notificationContext'
 
@@ -22,31 +21,32 @@ function saveReadIds(ids: Set<string>) {
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [readIds, setReadIds] = useState<Set<string>>(getReadIds)
 
-  const { data: blockedData } = useRecognitionHistory({
+  const { data: allowedData } = useRecognitionHistory({
+    known: true,
+    accessGranted: true,
+    limit: 100,
+    page: 1,
+  })
+  const { data: deniedData } = useRecognitionHistory({
+    known: true,
     accessGranted: false,
     limit: 100,
     page: 1,
   })
-  const { data: unknownData } = useRecognitionHistory({
-    unknown: true,
-    limit: 100,
-    page: 1,
-  })
-  const { data: cameras = [] } = useCameras()
 
   const notifications = useMemo<AppNotification[]>(() => {
     const result: AppNotification[] = []
     const seen = new Set<string>()
 
-    for (const r of blockedData?.data ?? []) {
-      const id = `hist-blocked-${r.id}`
+    for (const r of allowedData?.data ?? []) {
+      const id = `hist-allowed-${r.id}`
       if (seen.has(id)) continue
       seen.add(id)
       result.push({
         id,
-        level: 'danger',
-        title: 'Попытка проезда заблокированного номера',
-        body: `Номер ${r.plateNumber} пытался проехать${r.accessPointId ? ` на точке доступа #${r.accessPointId}` : ''}. Проезд не разрешён.`,
+        level: 'success',
+        title: 'Проезд разрешён',
+        body: `Номер ${r.plateNumber} проехал${r.accessPointId ? ` на точке доступа #${r.accessPointId}` : ''}. Доступ разрешён.`,
         time: new Date(r.occurredAt),
         read: readIds.has(id),
         sourceType: 'plate',
@@ -55,44 +55,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       })
     }
 
-    for (const r of unknownData?.data ?? []) {
-      const id = `hist-unknown-${r.id}`
+    for (const r of deniedData?.data ?? []) {
+      const id = `hist-denied-${r.id}`
       if (seen.has(id)) continue
       seen.add(id)
       result.push({
         id,
-        level: 'warn',
-        title: 'Нераспознанный номер',
-        body: `Номер ${r.plateNumber || '?'} не найден в базе${r.accessPointId ? ` (точка доступа #${r.accessPointId})` : ''}. Уверенность: ${Math.round((r.confidence ?? 0) * 100)}%.`,
+        level: 'danger',
+        title: 'Проезд запрещён',
+        body: `Номер ${r.plateNumber} пытался проехать${r.accessPointId ? ` на точке доступа #${r.accessPointId}` : ''}. Доступ не разрешён.`,
         time: new Date(r.occurredAt),
         read: readIds.has(id),
         sourceType: 'plate',
+        sourceId: r.plateNumber,
         actions: [{ label: 'Перейти в историю', href: '/history' }],
       })
     }
 
-    for (const cam of cameras) {
-      if (!cam.isEnabled) continue
-      const workerOff = (cam.metadata as Record<string, unknown>)?.status === 'error'
-      if (workerOff) {
-        const id = `cam-offline-${cam.guid}`
-        result.push({
-          id,
-          level: 'danger',
-          title: 'Камера потеряла сигнал',
-          body: `Камера «${cam.name}» не отвечает. Распознавание приостановлено.`,
-          time: new Date(cam.updatedAt ?? cam.createdAt),
-          read: readIds.has(id),
-          sourceType: 'camera',
-          sourceId: cam.guid,
-          actions: [{ label: 'Открыть камеру', href: `/cameras/${cam.guid}` }],
-        })
-      }
-    }
-
     result.sort((a, b) => b.time.getTime() - a.time.getTime())
     return result
-  }, [blockedData, unknownData, cameras, readIds])
+  }, [allowedData, deniedData, readIds])
 
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.read).length,

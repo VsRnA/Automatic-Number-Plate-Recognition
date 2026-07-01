@@ -82,7 +82,7 @@ func LoadEnv() (*Config, error) {
 		S3Region:    getEnv("S3_REGION", "us-east-1"),
 
 		ScudURL:     getEnv("SCUD_URL", "http://scud-system.local/api/v1/access"),
-		ScudStubURL: getEnv("SCUD_STUB_URL", "http://127.0.0.1:8080/internal/scud-stub"),
+		ScudStubURL: getEnv("SCUD_STUB_URL", "http://127.0.0.1:8080/internal/common-http-request"),
 	}
 
 	if err := cfg.ValidateRequired(); err != nil {

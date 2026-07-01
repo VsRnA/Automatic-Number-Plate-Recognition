@@ -50,6 +50,7 @@ func (c *Client) NotifyAccess(
 	plateNumber string,
 	accessPointId *int,
 	granted bool,
+	overrideURL string,
 ) IntegrationResult {
 	start := time.Now()
 	apID := 0
@@ -64,7 +65,7 @@ func (c *Client) NotifyAccess(
 		"action":        accessAction(granted),
 	})
 
-	displayURL := c.buildDisplayURL(apID, granted)
+	displayURL := c.buildDisplayURL(apID, granted, overrideURL)
 	req := CommonHttpRequest{
 		Method: "POST",
 		URL:    displayURL,
@@ -84,7 +85,10 @@ func (c *Client) NotifyAccess(
 	}
 }
 
-func (c *Client) buildDisplayURL(accessPointId int, granted bool) string {
+func (c *Client) buildDisplayURL(accessPointId int, granted bool, overrideURL string) string {
+	if overrideURL != "" {
+		return strings.TrimRight(overrideURL, "/")
+	}
 	base := c.displayURL
 	if base == "" {
 		base = "http://scud-system.local/api/v1/access"
@@ -109,7 +113,7 @@ func accessAction(granted bool) string {
 func (c *Client) executeStub(ctx context.Context, req CommonHttpRequest) CommonHttpResponse {
 	stubURL := c.stubURL
 	if stubURL == "" {
-		stubURL = "http://127.0.0.1:8080/internal/scud-stub"
+		stubURL = "http://127.0.0.1:8080/internal/common-http-request"
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, stubURL, bytes.NewReader([]byte(req.Body)))

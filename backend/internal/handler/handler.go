@@ -48,6 +48,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	router.Use(gin.Recovery())
 
 	router.POST("/internal/scud-stub", ScudStub)
+	router.POST("/internal/common-http-request", ScudStub)
 
 	api := router.Group("/api/v1")
 	api.Use(middleware.Auth(h.cfg, h.tokenRepo))

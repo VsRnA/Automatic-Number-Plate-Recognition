@@ -1,0 +1,2 @@
+ALTER TABLE "accessPoints"
+  ADD COLUMN IF NOT EXISTS "httpRequestUrl" VARCHAR(500);

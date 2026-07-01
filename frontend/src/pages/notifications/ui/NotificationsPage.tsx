@@ -4,14 +4,13 @@ import { useNotifications } from '@/entities/notification'
 import type { AppNotification, NotificationLevel } from '@/entities/notification'
 import { Icon, PageHeader } from '@/shared/ui'
 
-type FilterId = 'all' | 'unread' | 'danger' | 'warn' | 'info'
+type FilterId = 'all' | 'unread' | 'success' | 'danger'
 
 const FILTER_TABS: { id: FilterId; label: string; color?: string }[] = [
   { id: 'all', label: 'Все' },
   { id: 'unread', label: 'Непрочитанные' },
-  { id: 'danger', label: 'Критичные', color: 'var(--danger)' },
-  { id: 'warn', label: 'Предупреждения', color: 'var(--warn)' },
-  { id: 'info', label: 'Информация', color: 'var(--accent)' },
+  { id: 'success', label: 'Разрешено', color: 'var(--success)' },
+  { id: 'danger', label: 'Отказано', color: 'var(--danger)' },
 ]
 
 function getIconStyle(level: NotificationLevel): { bg: string; fg: string } {
@@ -102,19 +101,16 @@ export function NotificationsPage() {
   const filtered = notifications.filter(n => {
     if (filter === 'all') return true
     if (filter === 'unread') return !n.read
-    if (filter === 'info') return n.level === 'info' || n.level === 'success'
     return n.level === filter
   })
 
   const counts: Record<FilterId, number> = {
     all: notifications.length,
     unread: notifications.filter(n => !n.read).length,
+    success: notifications.filter(n => n.level === 'success').length,
     danger: notifications.filter(n => n.level === 'danger').length,
-    warn: notifications.filter(n => n.level === 'warn').length,
-    info: notifications.filter(n => n.level === 'info' || n.level === 'success').length,
   }
 
-  // Group by day label
   const groups: Record<string, AppNotification[]> = {}
   for (const n of filtered) {
     const label = getDayLabel(n.time)
@@ -129,25 +125,19 @@ export function NotificationsPage() {
         crumbs="Основное"
         count={unreadCount || undefined}
         actions={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="btn"
-              onClick={markAllRead}
-              disabled={unreadCount === 0}
-            >
-              <Icon name="check" /> Прочитать все
-            </button>
-            <button className="btn btn-icon" title="Настройки уведомлений">
-              <Icon name="settings" />
-            </button>
-          </div>
+          <button
+            className="btn"
+            onClick={markAllRead}
+            disabled={unreadCount === 0}
+          >
+            <Icon name="check" /> Прочитать все
+          </button>
         }
       />
 
       <div className="content">
-        {/* Filter tabs */}
-        <div className="filter-bar" style={{ paddingBottom: 0 }}>
-          <div className="filter-tabs" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none', margin: '0 -14px -12px' }}>
+        <div className="filter-bar">
+          <div className="filter-tabs">
             {FILTER_TABS.map(t => (
               <button
                 key={t.id}
@@ -176,7 +166,7 @@ export function NotificationsPage() {
               <div style={{ fontWeight: 500 }}>Уведомлений нет</div>
               <div style={{ fontSize: 13, color: 'var(--fg-subtle)', marginTop: 4 }}>
                 {filter === 'all'
-                  ? 'Здесь появляются критичные и информационные события системы'
+                  ? 'Здесь появляются уведомления о разрешённых и запрещённых проездах'
                   : 'В этой категории уведомлений нет'}
               </div>
             </div>

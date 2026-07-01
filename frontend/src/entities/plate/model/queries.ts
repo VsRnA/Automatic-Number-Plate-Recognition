@@ -4,14 +4,31 @@ import type { CreatePlateDto, UpdatePlateDto } from './types'
 
 export const plateKeys = {
   all: ['plates'] as const,
-  list: () => [...plateKeys.all, 'list'] as const,
+  list: (params?: object) => [...plateKeys.all, 'list', params] as const,
 }
 
-export const usePlates = () =>
-  useQuery({
-    queryKey: plateKeys.list(),
-    queryFn: () => plateApi.list({ limit: 200 }),
+export interface UsePlatesParams {
+  page?: number
+  limit?: number
+  number?: string
+  accessType?: string
+}
+
+export const usePlates = (params: UsePlatesParams = {}) => {
+  const limit = params.limit ?? 10
+  const page = params.page ?? 1
+  const offset = (page - 1) * limit
+
+  return useQuery({
+    queryKey: plateKeys.list({ ...params, limit, offset }),
+    queryFn: () => plateApi.list({
+      limit,
+      offset,
+      number: params.number || undefined,
+      accessType: params.accessType || undefined,
+    }),
   })
+}
 
 export const useDeletePlate = () => {
   const qc = useQueryClient()

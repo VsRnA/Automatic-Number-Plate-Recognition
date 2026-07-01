@@ -31,26 +31,29 @@ type platePayload struct {
 }
 
 type RecognitionWorker struct {
-	plateRepo   repository.IPlateRepository
-	papRepo     repository.IPlateAccessPointRepository
-	cameraRepo  repository.ICameraRepository
-	historyRepo repository.IRecognitionHistoryRepository
-	scudClient  *scud.Client
+	plateRepo       repository.IPlateRepository
+	papRepo         repository.IPlateAccessPointRepository
+	cameraRepo      repository.ICameraRepository
+	accessPointRepo repository.IAccessPointRepository
+	historyRepo     repository.IRecognitionHistoryRepository
+	scudClient      *scud.Client
 }
 
 func NewRecognitionWorker(
 	plateRepo repository.IPlateRepository,
 	papRepo repository.IPlateAccessPointRepository,
 	cameraRepo repository.ICameraRepository,
+	accessPointRepo repository.IAccessPointRepository,
 	historyRepo repository.IRecognitionHistoryRepository,
 	scudClient *scud.Client,
 ) *RecognitionWorker {
 	return &RecognitionWorker{
-		plateRepo:   plateRepo,
-		papRepo:     papRepo,
-		cameraRepo:  cameraRepo,
-		historyRepo: historyRepo,
-		scudClient:  scudClient,
+		plateRepo:       plateRepo,
+		papRepo:         papRepo,
+		cameraRepo:      cameraRepo,
+		accessPointRepo: accessPointRepo,
+		historyRepo:     historyRepo,
+		scudClient:      scudClient,
 	}
 }
 
@@ -171,8 +174,21 @@ func (w *RecognitionWorker) fillRecord(
 
 	if plateGuid != nil && w.scudClient != nil {
 		granted := record.AccessGranted != nil && *record.AccessGranted
-		result := w.scudClient.NotifyAccess(ctx, plate.PlateNumber, accessPointId, granted)
-		record.ScudResult = encodeScudResult(result)
+		if granted {
+			overrideURL := ""
+			if accessPointId != nil {
+				ap, err := w.accessPointRepo.Find(*accessPointId)
+				if err != nil {
+					slog.Error("Access point lookup error", "access_point_id", *accessPointId, "error", err)
+				} else if ap != nil && ap.HttpRequestUrl != nil {
+					overrideURL = *ap.HttpRequestUrl
+				}
+			}
+			result := w.scudClient.NotifyAccess(ctx, plate.PlateNumber, accessPointId, granted, overrideURL)
+			record.ScudResult = encodeScudResult(result)
+		} else {
+			record.ScudResult = nil
+		}
 	} else {
 		record.ScudResult = nil
 	}

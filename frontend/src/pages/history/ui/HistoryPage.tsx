@@ -5,21 +5,7 @@ import { formatDateTime } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
 import { TableSkeleton, Icon, PageHeader, PlateBadge, ConfidenceBar, Pagination } from '@/shared/ui'
 
-type HistorySection = 'access' | 'anpr'
-type AccessFilter = 'all' | 'allowed' | 'blocked'
-
 const PAGE_SIZE = 10
-
-function sectionParams(section: HistorySection): { known?: boolean; unknown?: boolean } {
-  if (section === 'access') return { known: true }
-  return { unknown: true }
-}
-
-function accessFilterParams(filter: AccessFilter): { accessGranted?: boolean } {
-  if (filter === 'allowed') return { accessGranted: true }
-  if (filter === 'blocked') return { accessGranted: false }
-  return {}
-}
 
 function AnprSnapshot() {
   return (
@@ -54,29 +40,25 @@ function SnapshotThumb({ url, plateNumber }: { url: string | null; plateNumber: 
   return <AnprSnapshot />
 }
 
-function AccessResultTag({ record }: { record: RecognitionHistory }) {
-  if (record.accessGranted === true) {
-    return <span className="tag tag-success">Разрешено</span>
-  }
-  return <span className="tag tag-danger">Отказано</span>
+function AccessResultTag() {
+  return <span className="tag tag-success">Разрешён</span>
 }
 
-function ScudCell({ scudResult }: { scudResult?: ScudIntegrationResult | null }) {
+function ScudCell({ scudResult, onClick }: { scudResult?: ScudIntegrationResult | null; onClick?: () => void }) {
   if (!scudResult?.request?.url) {
     return <span style={{ color: 'var(--fg-subtle)' }}>—</span>
   }
   const { method, url, body: reqBody } = scudResult.request
-  const { statusCode, body: respBody, durationMs, error } = scudResult.response ?? {}
-  const title = [
-    `→ ${method} ${url}`,
-    reqBody ? `Запрос:\n${reqBody}` : '',
-    statusCode ? `Ответ: ${statusCode} (${durationMs}ms)` : '',
-    error ? `Ошибка: ${error}` : '',
-    respBody ? respBody : '',
-  ].filter(Boolean).join('\n\n')
+  const { statusCode, error } = scudResult.response ?? {}
 
   return (
-    <div title={title} style={{ cursor: 'help', maxWidth: 220 }}>
+    <button
+      type="button"
+      className="btn btn-ghost btn-sm"
+      onClick={e => { e.stopPropagation(); onClick?.() }}
+      style={{ padding: '4px 6px', maxWidth: 220, textAlign: 'left', height: 'auto' }}
+      title="Подробности запроса"
+    >
       <div style={{ fontSize: 11, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {method} {url}
       </div>
@@ -91,6 +73,123 @@ function ScudCell({ scudResult }: { scudResult?: ScudIntegrationResult | null })
         </span>
       )}
       {error && <span className="tag tag-danger" style={{ marginTop: 4 }}>ошибка</span>}
+    </button>
+  )
+}
+
+function formatJsonBlock(raw: string): string {
+  if (!raw) return '—'
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2)
+  } catch {
+    return raw
+  }
+}
+
+interface ScudDetailModalProps {
+  record: RecognitionHistory
+  accessPointName?: string
+  configuredUrl?: string | null
+  onClose: () => void
+}
+
+function ScudDetailModal({ record, accessPointName, configuredUrl, onClose }: ScudDetailModalProps) {
+  const scud = record.scudResult
+  const req = scud?.request
+  const resp = scud?.response
+  const sentUrl = req?.url ?? ''
+  const urlMatchesConfig = configuredUrl && sentUrl === configuredUrl.trim().replace(/\/$/, '')
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>CommonHttpRequest</h2>
+          <button className="btn btn-icon btn-ghost" onClick={onClose}><Icon name="x" /></button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 13 }}>
+              <div><span className="text-subtle">Номер:</span> <PlateBadge number={record.plateNumber} /></div>
+              <div><span className="text-subtle">Время:</span> {formatDateTime(record.occurredAt)}</div>
+              {accessPointName && (
+                <div><span className="text-subtle">Точка:</span> {accessPointName}</div>
+              )}
+            </div>
+
+            {!scud?.request?.url ? (
+              <div className="empty" style={{ padding: '24px 0' }}>
+                <div style={{ fontWeight: 500 }}>Запрос не отправлялся</div>
+                <div className="text-subtle text-sm" style={{ marginTop: 4 }}>
+                  CommonHttpRequest выполняется только для разрешённых проездов номеров из базы.
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: 14, background: 'var(--bg-sunken)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                  <div className="text-subtle text-xs" style={{ marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Целевой URL запроса
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, wordBreak: 'break-all' }}>
+                    {sentUrl}
+                  </div>
+                  {configuredUrl && (
+                    <div style={{ marginTop: 10, fontSize: 12.5, color: urlMatchesConfig ? 'var(--success)' : 'var(--fg-muted)' }}>
+                      {urlMatchesConfig
+                        ? '✓ Совпадает с адресом, указанным на точке доступа'
+                        : `Адрес на точке доступа: ${configuredUrl}`}
+                    </div>
+                  )}
+                  {!configuredUrl && (
+                    <div className="text-subtle text-xs" style={{ marginTop: 8 }}>
+                      Использован глобальный SCUD_URL (адрес на точке доступа не задан)
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Запрос</div>
+                  <div className="text-subtle text-xs" style={{ marginBottom: 4 }}>Метод: {req?.method ?? 'POST'}</div>
+                  <pre style={{
+                    margin: 0, padding: 12, background: 'var(--bg)', border: '1px solid var(--line)',
+                    borderRadius: 6, fontSize: 11.5, overflow: 'auto', maxHeight: 160,
+                  }}>
+                    {formatJsonBlock(req?.body ?? '')}
+                  </pre>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Ответ заглушки</div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                    {resp?.statusCode !== undefined && resp.statusCode > 0 && (
+                      <span className={`tag ${resp.statusCode >= 200 && resp.statusCode < 300 ? 'tag-success' : 'tag-danger'}`}>
+                        HTTP {resp.statusCode}
+                      </span>
+                    )}
+                    {resp?.durationMs !== undefined && (
+                      <span className="tag">{resp.durationMs} ms</span>
+                    )}
+                    {resp?.error && <span className="tag tag-danger">{resp.error}</span>}
+                  </div>
+                  <pre style={{
+                    margin: 0, padding: 12, background: 'var(--bg)', border: '1px solid var(--line)',
+                    borderRadius: 6, fontSize: 11.5, overflow: 'auto', maxHeight: 160,
+                  }}>
+                    {formatJsonBlock(resp?.body ?? '')}
+                  </pre>
+                  <div className="text-subtle text-xs" style={{ marginTop: 8 }}>
+                    Запрос проксируется через заглушку сервера: POST /internal/common-http-request
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="modal-foot">
+          <span />
+          <button className="btn" onClick={onClose}>Закрыть</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -98,19 +197,17 @@ function ScudCell({ scudResult }: { scudResult?: ScudIntegrationResult | null })
 function HistoryTable({
   records,
   isLoading,
-  colSpan,
-  section,
   accessPointMap,
   hasActiveFilters,
   onResetFilters,
+  onRecordClick,
 }: {
   records: RecognitionHistory[]
   isLoading: boolean
-  colSpan: number
-  section: HistorySection
-  accessPointMap: Map<number, { name: string }>
+  accessPointMap: Map<number, { name: string; httpRequestUrl?: string | null }>
   hasActiveFilters: boolean
   onResetFilters: () => void
+  onRecordClick: (record: RecognitionHistory) => void
 }) {
   return (
     <table className="tbl">
@@ -118,8 +215,8 @@ function HistoryTable({
         <tr>
           <th style={{ width: 80 }}>Фото</th>
           <th>Номер</th>
-          {section === 'access' && <th>Результат</th>}
-          {section === 'access' && <th style={{ minWidth: 220 }}>Запрос в СКУД</th>}
+          <th>Результат</th>
+          <th style={{ minWidth: 220 }}>Запрос в СКУД</th>
           <th>Уверенность</th>
           <th>Точка доступа</th>
           <th>Камера</th>
@@ -127,25 +224,25 @@ function HistoryTable({
         </tr>
       </thead>
       <tbody>
-        {isLoading && <TableSkeleton rows={6} cols={colSpan} />}
+        {isLoading && <TableSkeleton rows={6} cols={8} />}
         {!isLoading && records.map(record => (
-          <tr key={record.id}>
+          <tr
+            key={record.id}
+            onClick={() => onRecordClick(record)}
+            style={{ cursor: 'pointer' }}
+          >
             <td>
               <SnapshotThumb url={record.snapshotUrl || null} plateNumber={record.plateNumber} />
             </td>
             <td>
               <PlateBadge number={record.plateNumber} />
             </td>
-            {section === 'access' && (
-              <td>
-                <AccessResultTag record={record} />
-              </td>
-            )}
-            {section === 'access' && (
-              <td>
-                <ScudCell scudResult={record.scudResult} />
-              </td>
-            )}
+            <td>
+              <AccessResultTag />
+            </td>
+            <td onClick={e => e.stopPropagation()}>
+              <ScudCell scudResult={record.scudResult} onClick={() => onRecordClick(record)} />
+            </td>
             <td style={{ minWidth: 100 }}>
               <ConfidenceBar value={record.confidence} />
             </td>
@@ -164,7 +261,7 @@ function HistoryTable({
         ))}
         {!isLoading && records.length === 0 && (
           <tr>
-            <td colSpan={colSpan}>
+            <td colSpan={8}>
               <div className="empty" style={{ padding: '32px 0' }}>
                 <Icon name="history" size={20} style={{ color: 'var(--fg-subtle)', marginBottom: 8 }} />
                 <div style={{ fontWeight: 500 }}>
@@ -173,9 +270,7 @@ function HistoryTable({
                 <div style={{ fontSize: 13, color: 'var(--fg-subtle)', marginTop: 4 }}>
                   {hasActiveFilters
                     ? 'Попробуйте изменить фильтры или сбросить их'
-                    : section === 'access'
-                      ? 'Записи появятся после распознавания номеров из базы'
-                      : 'Записи появятся после распознавания неизвестных номеров'}
+                    : 'Записи появятся после разрешённых проездов номеров из базы'}
                 </div>
                 {hasActiveFilters && (
                   <button className="btn btn-sm" style={{ marginTop: 12 }} onClick={onResetFilters}>
@@ -194,35 +289,35 @@ function HistoryTable({
 export function HistoryPage() {
   const [search, setSearch] = useState('')
   const [accessPointFilter, setAccessPointFilter] = useState<number | undefined>(undefined)
-  const [section, setSection] = useState<HistorySection>('access')
-  const [accessFilter, setAccessFilter] = useState<AccessFilter>('all')
   const [showApMenu, setShowApMenu] = useState(false)
   const [page, setPage] = useState(1)
+  const [selectedRecord, setSelectedRecord] = useState<RecognitionHistory | null>(null)
 
   const { data: accessPoints = [] } = useAccessPoints()
-  const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
+  const accessPointMap = useMemo(
+    () => new Map(accessPoints.map(ap => [ap.id, { name: ap.name, httpRequestUrl: ap.httpRequestUrl }])),
+    [accessPoints],
+  )
 
   const queryParams = {
     page,
     limit: PAGE_SIZE,
+    known: true,
+    accessGranted: true,
     ...(search.length === 0 || search.length >= 2 ? { plateNumber: search || undefined } : {}),
     ...(accessPointFilter !== undefined ? { accessPointId: accessPointFilter } : {}),
-    ...sectionParams(section),
-    ...(section === 'access' ? accessFilterParams(accessFilter) : {}),
   }
 
-  const { data, isLoading, error, refetch, isRefetching } = useRecognitionHistory(queryParams)
+  const { data, isLoading, error, refetch } = useRecognitionHistory(queryParams)
 
   const records = data?.data ?? []
   const total = data?.total ?? 0
-  const colSpan = section === 'access' ? 7 : 5
 
   const selectedAp = accessPointFilter !== undefined
     ? accessPoints.find(ap => ap.id === accessPointFilter)
     : undefined
 
-  const hasActiveFilters = !!search || accessPointFilter !== undefined ||
-    (section === 'access' && accessFilter !== 'all')
+  const hasActiveFilters = !!search || accessPointFilter !== undefined
 
   function handleSearch(value: string) {
     setSearch(value)
@@ -235,56 +330,35 @@ export function HistoryPage() {
     setPage(1)
   }
 
-  function handleSection(next: HistorySection) {
-    setSection(next)
-    setAccessFilter('all')
-    setPage(1)
-  }
-
-  function handleAccessFilter(f: AccessFilter) {
-    setAccessFilter(f)
-    setPage(1)
-  }
-
   function resetFilters() {
     setSearch('')
     setAccessPointFilter(undefined)
-    setAccessFilter('all')
     setPage(1)
   }
 
-  const sectionTabs: { id: HistorySection; label: string }[] = [
-    { id: 'access', label: 'Доступ (в базе)' },
-    { id: 'anpr', label: 'Распознано ANPR' },
-  ]
-
-  const accessTabs: { id: AccessFilter; label: string; color?: string }[] = [
-    { id: 'all', label: 'Все' },
-    { id: 'allowed', label: 'Разрешено', color: 'var(--success)' },
-    { id: 'blocked', label: 'Отказано', color: 'var(--danger)' },
-  ]
-
   return (
     <>
+      {selectedRecord && (
+        <ScudDetailModal
+          record={selectedRecord}
+          accessPointName={
+            selectedRecord.accessPointId !== null
+              ? accessPointMap.get(selectedRecord.accessPointId)?.name
+              : undefined
+          }
+          configuredUrl={
+            selectedRecord.accessPointId !== null
+              ? accessPointMap.get(selectedRecord.accessPointId)?.httpRequestUrl
+              : undefined
+          }
+          onClose={() => setSelectedRecord(null)}
+        />
+      )}
+
       <PageHeader
         title="История распознаваний"
         crumbs="Основное"
         count={total}
-        actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fg-subtle)' }}>
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: 'var(--success)',
-                display: 'inline-block',
-                boxShadow: '0 0 0 2px var(--success-soft)',
-                animation: isRefetching ? 'pulseDot 1.4s infinite' : 'none',
-                transition: 'all 0.3s',
-              }} />
-              Авто-обновление
-            </span>
-          </div>
-        }
       />
 
       <div className="content">
@@ -344,33 +418,6 @@ export function HistoryPage() {
               </button>
             )}
           </div>
-
-          <div className="filter-tabs">
-            {sectionTabs.map(t => (
-              <button
-                key={t.id}
-                className={`filter-tab${section === t.id ? ' active' : ''}`}
-                onClick={() => handleSection(t.id)}
-              >
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {section === 'access' && (
-            <div className="filter-tabs" style={{ marginTop: 4 }}>
-              {accessTabs.map(t => (
-                <button
-                  key={t.id}
-                  className={`filter-tab${accessFilter === t.id ? ' active' : ''}`}
-                  onClick={() => handleAccessFilter(t.id)}
-                >
-                  {t.color && <span className="filter-tab-dot" style={{ background: t.color }} />}
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {error && (
@@ -385,11 +432,10 @@ export function HistoryPage() {
             <HistoryTable
               records={records}
               isLoading={isLoading}
-              colSpan={colSpan}
-              section={section}
               accessPointMap={accessPointMap}
               hasActiveFilters={hasActiveFilters}
               onResetFilters={resetFilters}
+              onRecordClick={setSelectedRecord}
             />
 
             <Pagination

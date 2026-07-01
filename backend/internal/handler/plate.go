@@ -265,6 +265,10 @@ func (h *PlateHandler) ListPlates(c *gin.Context) {
 		filters.Number = &number
 	}
 
+	if accessType := c.Query("accessType"); accessType != "" {
+		filters.AccessType = &accessType
+	}
+
 	if isEnabledStr := c.Query("isEnabled"); isEnabledStr != "" {
 		if isEnabledStr == "true" {
 			isEnabled := true
@@ -297,12 +301,23 @@ func (h *PlateHandler) ListPlates(c *gin.Context) {
 		return
 	}
 
+	total, err := h.plate.repo.Count(filters)
+	if err != nil {
+		exception.HttpResponseException(c, exception.InternalError("failed plate count: "+err.Error()))
+		return
+	}
+
 	responses := make([]model.PlateResponse, 0, len(plates))
 	for i := range plates {
 		responses = append(responses, h.buildResponse(&plates[i]))
 	}
 
-	c.JSON(http.StatusOK, responses)
+	c.JSON(http.StatusOK, gin.H{
+		"data":   responses,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 func (h *PlateHandler) ImportPlates(c *gin.Context) {

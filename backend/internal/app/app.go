@@ -87,6 +87,7 @@ func (a *App) Run() error {
 		repositories.Plate,
 		repositories.PlateAccessPoint,
 		repositories.Camera,
+		repositories.AccessPoint,
 		repositories.Recognition,
 		scudClient,
 	)

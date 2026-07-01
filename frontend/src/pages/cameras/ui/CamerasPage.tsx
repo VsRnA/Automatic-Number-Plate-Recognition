@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Camera } from '@/entities/camera'
 import { useCameras, useDeleteCamera, useCameraSnapshot, useCameraWorkerStatus } from '@/entities/camera'
@@ -13,12 +13,20 @@ type ViewMode = 'grid' | 'table'
 export function CamerasPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [view, setView] = useState<ViewMode>('grid')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const { showToast } = useToast()
 
-  const { data: cameras = [], isLoading, error, refetch } = useCameras()
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(id)
+  }, [search])
+
+  const { data: cameras = [], isLoading, error, refetch } = useCameras({
+    name: debouncedSearch || undefined,
+  })
   const { data: accessPoints = [] } = useAccessPoints()
   const deleteCamera = useDeleteCamera()
 
@@ -33,12 +41,8 @@ export function CamerasPage() {
   const filtered = useMemo(() => cameras.filter(c => {
     if (statusFilter === 'active' && !c.isEnabled) return false
     if (statusFilter === 'off' && c.isEnabled) return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (!c.name.toLowerCase().includes(q) && !c.stream.includes(q)) return false
-    }
     return true
-  }), [cameras, statusFilter, search])
+  }), [cameras, statusFilter])
 
   const accessPointMap = useMemo(() => new Map(accessPoints.map(ap => [ap.id, ap])), [accessPoints])
 
@@ -90,16 +94,6 @@ export function CamerasPage() {
         title="Камеры"
         crumbs="Основное"
         count={cameras.length}
-        actions={
-          <>
-            <div className="system-strip hide-mobile">
-              <span className="dot" /> Система онлайн
-            </div>
-            <button className="btn btn-accent" onClick={() => navigate('/cameras/add')}>
-              <Icon name="plus" /> Добавить камеру
-            </button>
-          </>
-        }
       />
 
       <div className="content">
@@ -174,27 +168,57 @@ export function CamerasPage() {
           </div>
         )}
 
-        {!isLoading && !error && filtered.length > 0 && view === 'grid' && groups.map(group => (
-          <div key={`g-${group.apId}`} style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <Icon name="gate" size={13} style={{ color: 'var(--fg-subtle)' }} />
-              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--fg-subtle)' }}>
-                {group.name}
-              </span>
-              <span className="text-xs text-subtle">· {group.cameras.length}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-              {group.cameras.map(c => (
-                <CameraCard
-                  key={c.guid}
-                  camera={c}
-                  onEdit={() => navigate(`/cameras/${c.guid}`)}
-                  onDelete={() => setDeletingId(c.guid)}
-                />
-              ))}
+        {!isLoading && !error && filtered.length > 0 && view === 'grid' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, alignItems: 'stretch' }}>
+            {groups.map(group => (
+              <div key={`g-${group.apId}`} style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <Icon name="gate" size={13} style={{ color: 'var(--fg-subtle)' }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--fg-subtle)' }}>
+                    {group.name}
+                  </span>
+                  <span className="text-xs text-subtle">· {group.cameras.length}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {group.cameras.map(c => (
+                    <CameraCard
+                      key={c.guid}
+                      camera={c}
+                      onEdit={() => navigate(`/cameras/${c.guid}`)}
+                      onDelete={() => setDeletingId(c.guid)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, minHeight: 13 }} aria-hidden />
+              <button
+                type="button"
+                className="cam-card"
+                onClick={() => navigate('/cameras/add')}
+                style={{
+                  flex: 1,
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px dashed var(--line-strong)',
+                  background: 'transparent',
+                  minHeight: 220,
+                  cursor: 'pointer',
+                  color: 'var(--fg-muted)',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  <Icon name="plus" size={20} />
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>Добавить камеру</span>
+                </div>
+              </button>
             </div>
           </div>
-        ))}
+        )}
 
         {!isLoading && !error && filtered.length > 0 && view === 'table' && (
           <div className="card">

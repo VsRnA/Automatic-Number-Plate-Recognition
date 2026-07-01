@@ -8,10 +8,11 @@ import (
 )
 
 type PlateFilters struct {
-	Number    *string
-	IsEnabled *bool
-	Limit     int
-	Offset    int
+	Number     *string
+	AccessType *string
+	IsEnabled  *bool
+	Limit      int
+	Offset     int
 }
 
 type IPlateRepository interface {
@@ -21,6 +22,7 @@ type IPlateRepository interface {
 	Update(plate *model.Plate) error
 	Delete(id uuid.UUID) error
 	List(filters *PlateFilters) ([]model.Plate, error)
+	Count(filters *PlateFilters) (int64, error)
 }
 
 type PlateRepository struct {
@@ -80,18 +82,26 @@ func (r *PlateRepository) Delete(id uuid.UUID) error {
 	return r.db.Where("guid = ?", id).Delete(&model.Plate{}).Error
 }
 
+func (r *PlateRepository) applyFilters(query *gorm.DB, filters *PlateFilters) *gorm.DB {
+	if filters == nil {
+		return query
+	}
+	if filters.Number != nil && *filters.Number != "" {
+		query = query.Where("number ILIKE ?", "%"+*filters.Number+"%")
+	}
+	if filters.AccessType != nil && *filters.AccessType != "" {
+		query = query.Where("\"accessType\" = ?", *filters.AccessType)
+	}
+	if filters.IsEnabled != nil {
+		query = query.Where("\"isEnabled\" = ?", *filters.IsEnabled)
+	}
+	return query
+}
+
 func (r *PlateRepository) List(filters *PlateFilters) ([]model.Plate, error) {
-	query := r.db.Model(&model.Plate{})
+	query := r.applyFilters(r.db.Model(&model.Plate{}).Order("\"createdAt\" DESC"), filters)
 
 	if filters != nil {
-		if filters.Number != nil && *filters.Number != "" {
-			query = query.Where("number ILIKE ?", "%"+*filters.Number+"%")
-		}
-
-		if filters.IsEnabled != nil {
-			query = query.Where("\"isEnabled\" = ?", *filters.IsEnabled)
-		}
-
 		if filters.Limit > 0 {
 			query = query.Limit(filters.Limit)
 		}
@@ -106,4 +116,10 @@ func (r *PlateRepository) List(filters *PlateFilters) ([]model.Plate, error) {
 	}
 
 	return plates, nil
+}
+
+func (r *PlateRepository) Count(filters *PlateFilters) (int64, error) {
+	query := r.applyFilters(r.db.Model(&model.Plate{}), filters)
+	var count int64
+	return count, query.Count(&count).Error
 }

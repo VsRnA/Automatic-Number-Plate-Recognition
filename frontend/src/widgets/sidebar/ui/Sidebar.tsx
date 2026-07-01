@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { id: 'plates',        label: 'Номера',           icon: 'plate',     },
   { id: 'access-points', label: 'Точки доступа',    icon: 'gate',      },
   { id: 'history',       label: 'История',          icon: 'history',   },
+  { id: 'notifications', label: 'Уведомления',      icon: 'info',      },
   { id: 'analytics',     label: 'Аналитика',        icon: 'analytics', },
 ]
 

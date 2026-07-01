@@ -6,7 +6,7 @@ import { useToast, formatDate } from '@/shared/lib'
 import { getErrorMessage } from '@/shared/api'
 import { TableSkeleton, ConfirmDialog, Icon, PageHeader, Toggle, StatusDot } from '@/shared/ui'
 
-const EMPTY_FORM: CreateAccessPointDto = { name: '', description: '', isEnabled: true }
+const EMPTY_FORM: CreateAccessPointDto = { name: '', description: '', httpRequestUrl: '', isEnabled: true }
 
 export function AccessPointsPage() {
   const [showForm, setShowForm] = useState(false)
@@ -89,6 +89,16 @@ export function AccessPointsPage() {
                   />
                 </div>
                 <div className="field">
+                  <label>Адрес запроса (CommonHttpRequest)</label>
+                  <input
+                    className="input"
+                    placeholder="https://example.com/api/open"
+                    value={editForm.httpRequestUrl ?? editingAp.httpRequestUrl ?? ''}
+                    onChange={e => setEditForm(f => ({ ...f, httpRequestUrl: e.target.value }))}
+                  />
+                  <div className="field-help">URL для отправки запроса на открытие шлагбаума/ворот. Если не задан — используется глобальный SCUD_URL.</div>
+                </div>
+                <div className="field">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <label>Активна</label>
                     <Toggle
@@ -147,6 +157,16 @@ export function AccessPointsPage() {
                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   />
                 </div>
+                <div className="field">
+                  <label>Адрес запроса (CommonHttpRequest)</label>
+                  <input
+                    className="input"
+                    placeholder="https://example.com/api/open"
+                    value={form.httpRequestUrl ?? ''}
+                    onChange={e => setForm(f => ({ ...f, httpRequestUrl: e.target.value }))}
+                  />
+                  <div className="field-help">URL для отправки запроса на открытие шлагбаума/ворот. Если не задан — используется глобальный SCUD_URL.</div>
+                </div>
               </div>
             </div>
             <div className="modal-foot">
@@ -166,11 +186,6 @@ export function AccessPointsPage() {
         title="Точки доступа"
         crumbs="Основное"
         count={items.length}
-        actions={
-          <button className="btn btn-accent" onClick={() => setShowForm(true)}>
-            <Icon name="plus" /> Добавить точку
-          </button>
-        }
       />
 
       <div className="content">
@@ -213,7 +228,12 @@ export function AccessPointsPage() {
                   cameras={apCameras}
                   onEdit={() => {
                     setEditingAp(ap)
-                    setEditForm({ name: ap.name, description: ap.description, isEnabled: ap.isEnabled })
+                    setEditForm({
+                      name: ap.name,
+                      description: ap.description,
+                      httpRequestUrl: ap.httpRequestUrl ?? '',
+                      isEnabled: ap.isEnabled,
+                    })
                   }}
                   onDelete={() => setDeletingId(ap.id)}
                 />

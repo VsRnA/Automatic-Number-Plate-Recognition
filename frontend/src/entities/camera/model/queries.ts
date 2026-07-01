@@ -5,15 +5,22 @@ import type { CreateCameraDto, UpdateCameraDto } from '../api/cameraApi'
 
 export const cameraKeys = {
   all: ['cameras'] as const,
-  list: () => [...cameraKeys.all, 'list'] as const,
+  list: (params?: object) => [...cameraKeys.all, 'list', params] as const,
   detail: (id: string) => [...cameraKeys.all, 'detail', id] as const,
   workerStatus: (id: string) => [...cameraKeys.detail(id), 'workerStatus'] as const,
 }
 
-export const useCameras = () =>
+export interface UseCamerasParams {
+  name?: string
+  isEnabled?: boolean
+  accessPointId?: number
+  limit?: number
+}
+
+export const useCameras = (params: UseCamerasParams = {}) =>
   useQuery({
-    queryKey: cameraKeys.list(),
-    queryFn: () => cameraApi.list({ limit: 200 }),
+    queryKey: cameraKeys.list(params),
+    queryFn: () => cameraApi.list({ limit: 200, ...params }),
   })
 
 export const useCamera = (id: string) =>

@@ -58,6 +58,9 @@ func (h *AccessPointHandler) CreateAccessPoint(c *gin.Context) {
 		Direction:   "both",
 		IsEnabled:   true,
 	}
+	if req.HttpRequestUrl != nil && *req.HttpRequestUrl != "" {
+		ap.HttpRequestUrl = req.HttpRequestUrl
+	}
 	if req.Direction != "" {
 		ap.Direction = req.Direction
 	}
@@ -127,6 +130,13 @@ func (h *AccessPointHandler) UpdateAccessPoint(c *gin.Context) {
 	}
 	if req.IsEnabled != nil {
 		ap.IsEnabled = *req.IsEnabled
+	}
+	if req.HttpRequestUrl != nil {
+		if *req.HttpRequestUrl == "" {
+			ap.HttpRequestUrl = nil
+		} else {
+			ap.HttpRequestUrl = req.HttpRequestUrl
+		}
 	}
 
 	if err := h.repo.Update(ap); err != nil {
